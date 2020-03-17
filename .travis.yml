@@ -1,0 +1,21 @@
+language: rust
+rust:
+  - stable
+  - beta
+  - nightly
+
+branches:
+  only:
+    - master
+    - staging # This is where pull requests from "bors r+" are built.
+    - trying # This is where pull requests from "bors try" are built.
+
+cache: cargo
+
+notifications:
+  email: false
+
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
