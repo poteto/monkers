@@ -82,7 +82,7 @@ impl<'a> Lexer<'a> {
                 if self.ch.is_ascii_alphabetic() {
                     let literal = self.read_identifier();
                     // early return as we don't need to call `read_char` again past the `match` statement
-                    return lookup_identifier(literal)
+                    return lookup_identifier(literal);
                 } else if self.ch.is_ascii_digit() {
                     let literal = self.read_number();
                     match literal.parse::<IntegerSize>() {
