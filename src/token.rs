@@ -1,12 +1,14 @@
 use std::fmt;
 
+pub type IntegerSize = i64;
+
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Token {
     Illegal(char),
     EndOfFile,
 
     Identifier(String),
-    Integer(i64),
+    Integer(IntegerSize),
     String(String),
     Bool(bool),
 
@@ -82,5 +84,13 @@ impl fmt::Display for Token {
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
         }
+    }
+}
+
+pub fn lookup_identifier(identifier: String) -> Token {
+    match identifier.as_str() {
+        "fn" => Token::Function,
+        "let" => Token::Let,
+        _ => Token::Identifier(identifier),
     }
 }
