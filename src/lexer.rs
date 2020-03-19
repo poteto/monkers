@@ -15,7 +15,7 @@ impl<'a> Lexer<'a> {
             input,
             position: 0,
             read_position: 0,
-            ch: 0 as char,
+            ch: '0',
         };
         lexer.read_char();
         lexer
@@ -23,7 +23,7 @@ impl<'a> Lexer<'a> {
 
     fn peek_char(&self) -> result::Result<char, &str> {
         if self.read_position >= self.input.len() {
-            Ok(0 as char)
+            Ok('0')
         } else if let Some(ch) = self.input.chars().nth(self.read_position) {
             Ok(ch)
         } else {
@@ -33,7 +33,7 @@ impl<'a> Lexer<'a> {
 
     fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
-            self.ch = 0 as char;
+            self.ch = '0';
         } else if let Some(ch) = self.input.chars().nth(self.read_position) {
             self.ch = ch;
         } else {
@@ -73,34 +73,56 @@ impl<'a> Lexer<'a> {
             .collect()
     }
 
+    pub fn is_end_of_file(self) -> bool {
+        self.position >= self.input.len() && self.ch == '0'
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token: Token;
         match self.ch {
+            '0' => token = Token::EndOfFile,
+
+            // '=='
+            '=' if self.peek_char().unwrap() == '=' => {
+                self.read_char(); // consume '=' after first '='
+                token = Token::Equal
+            }
             '=' => token = Token::Assign,
+            '+' => token = Token::Plus,
+            '-' => token = Token::Minus,
+            // '!='
+            '!' if self.peek_char().unwrap() == '=' => {
+                self.read_char(); // consume '=' after first '!'
+                token = Token::NotEqual
+            }
+            '!' => token = Token::Bang,
+            '*' => token = Token::Asterisk,
+            '/' => token = Token::Slash,
+
+            '<' => token = Token::LessThan,
+            '>' => token = Token::GreaterThan,
+
+            ',' => token = Token::Comma,
             ';' => token = Token::Semicolon,
             '(' => token = Token::Lparen,
             ')' => token = Token::Rparen,
-            ',' => token = Token::Comma,
-            '+' => token = Token::Plus,
             '{' => token = Token::Lbrace,
             '}' => token = Token::Rbrace,
-            '0' => token = Token::EndOfFile,
-            _ => {
-                if self.ch.is_ascii_alphabetic() {
-                    let literal = self.read_identifier();
-                    // early return as we don't need to call `read_char` again past the `match` statement
-                    return lookup_identifier(literal);
-                } else if self.ch.is_ascii_digit() {
-                    let literal = self.read_number();
-                    match literal.parse::<IntegerSize>() {
-                        Ok(i) => return Token::Integer(i),
-                        Err(_) => panic!("Could not parse lexed integer literal"),
-                    }
-                } else {
-                    token = Token::Illegal(self.ch)
+
+            _ if self.ch.is_ascii_alphabetic() => {
+                let literal = self.read_identifier();
+                // early return as we don't need to call `read_char` again past the `match` statement
+                return lookup_identifier(literal);
+            }
+            _ if self.ch.is_ascii_digit() => {
+                let literal = self.read_number();
+                match literal.parse::<IntegerSize>() {
+                    Ok(i) => return Token::Integer(i),
+                    Err(_) => panic!("Could not parse lexed integer literal"),
                 }
             }
+            _ => token = Token::Illegal(self.ch),
         };
         self.read_char();
         token
@@ -124,13 +146,19 @@ mod tests {
             Token::Rbrace,
             Token::Comma,
             Token::Semicolon,
+            Token::EndOfFile,
         ];
         let mut lexer = Lexer::new(input);
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token);
+            assert_eq!(expect, token, "Expected `{}`, got `{}`", expect, token);
         }
+
+        assert!(
+            lexer.is_end_of_file(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
     }
 
     #[test]
@@ -144,6 +172,17 @@ mod tests {
             };
 
             let result = add(five, ten);
+            !-/*5;
+            5 < 10 > 5;
+
+            if (5 < 10) {
+                return true;
+            } else {
+                return false;
+            }
+
+            10 == 10;
+            10 != 9;
         "#;
         let expected = vec![
             Token::Let,
@@ -182,12 +221,61 @@ mod tests {
             Token::Identifier(String::from("ten")),
             Token::Rparen,
             Token::Semicolon,
+            Token::Bang,
+            Token::Minus,
+            Token::Slash,
+            Token::Asterisk,
+            Token::Integer(5),
+            Token::Semicolon,
+            Token::Integer(5),
+            Token::LessThan,
+            Token::Integer(10),
+            Token::GreaterThan,
+            Token::Integer(5),
+            Token::Semicolon,
+            Token::If,
+            Token::Lparen,
+            Token::Integer(5),
+            Token::LessThan,
+            Token::Integer(10),
+            Token::Rparen,
+            Token::Lbrace,
+            Token::Return,
+            Token::Boolean(true),
+            Token::Semicolon,
+            Token::Rbrace,
+            Token::Else,
+            Token::Lbrace,
+            Token::Return,
+            Token::Boolean(false),
+            Token::Semicolon,
+            Token::Rbrace,
+            Token::Integer(10),
+            Token::Equal,
+            Token::Integer(10),
+            Token::Semicolon,
+            Token::Integer(10),
+            Token::NotEqual,
+            Token::Integer(9),
+            Token::Semicolon,
+            Token::EndOfFile,
         ];
         let mut lexer = Lexer::new(input);
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token);
+            assert_eq!(expect, token, "Expected `{}`, got `{}`", expect, token);
         }
+        println!(
+            "Curr: {:?}, Pos: {}, Len: {}",
+            lexer.ch,
+            lexer.position,
+            input.len()
+        );
+
+        assert!(
+            lexer.is_end_of_file(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
     }
 }

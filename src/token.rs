@@ -10,7 +10,7 @@ pub enum Token {
     Identifier(String),
     Integer(IntegerSize),
     String(String),
-    Bool(bool),
+    Boolean(bool),
 
     Assign,
     Plus,
@@ -52,7 +52,7 @@ impl fmt::Display for Token {
             Token::Identifier(s) => write!(f, "Identifier({})", s),
             Token::Integer(i) => i.fmt(f),
             Token::String(s) => s.fmt(f),
-            Token::Bool(b) => write!(f, "Boolean({})", b),
+            Token::Boolean(b) => write!(f, "Boolean({})", b),
 
             Token::Assign => write!(f, "="),
             Token::Plus => write!(f, "+"),
@@ -91,6 +91,11 @@ pub fn lookup_identifier(identifier: String) -> Token {
     match identifier.as_str() {
         "fn" => Token::Function,
         "let" => Token::Let,
+        "true" => Token::Boolean(true),
+        "false" => Token::Boolean(false),
+        "if" => Token::If,
+        "else" => Token::Else,
+        "return" => Token::Return,
         _ => Token::Identifier(identifier),
     }
 }
