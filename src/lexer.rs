@@ -54,7 +54,11 @@ impl<'a> Lexer<'a> {
         while self.ch.is_ascii_alphabetic() {
             self.read_char();
         }
-        self.input[position..self.position].to_owned()
+        self.input
+            .chars()
+            .skip(position)
+            .take(self.position - position)
+            .collect()
     }
 
     fn read_number(&mut self) -> String {
@@ -62,7 +66,11 @@ impl<'a> Lexer<'a> {
         while self.ch.is_ascii_digit() {
             self.read_char();
         }
-        self.input[position..self.position].to_owned()
+        self.input
+            .chars()
+            .skip(position)
+            .take(self.position - position)
+            .collect()
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -139,39 +147,39 @@ mod tests {
         "#;
         let expected = vec![
             Token::Let,
-            Token::Identifier("five".to_owned()),
+            Token::Identifier(String::from("five")),
             Token::Assign,
             Token::Integer(5),
             Token::Semicolon,
             Token::Let,
-            Token::Identifier("ten".to_owned()),
+            Token::Identifier(String::from("ten")),
             Token::Assign,
             Token::Integer(10),
             Token::Semicolon,
             Token::Let,
-            Token::Identifier("add".to_owned()),
+            Token::Identifier(String::from("add")),
             Token::Assign,
             Token::Function,
             Token::Lparen,
-            Token::Identifier("x".to_owned()),
+            Token::Identifier(String::from("x")),
             Token::Comma,
-            Token::Identifier("y".to_owned()),
+            Token::Identifier(String::from("y")),
             Token::Rparen,
             Token::Lbrace,
-            Token::Identifier("x".to_owned()),
+            Token::Identifier(String::from("x")),
             Token::Plus,
-            Token::Identifier("y".to_owned()),
+            Token::Identifier(String::from("y")),
             Token::Semicolon,
             Token::Rbrace,
             Token::Semicolon,
             Token::Let,
-            Token::Identifier("result".to_owned()),
+            Token::Identifier(String::from("result")),
             Token::Assign,
-            Token::Identifier("add".to_owned()),
+            Token::Identifier(String::from("add")),
             Token::Lparen,
-            Token::Identifier("five".to_owned()),
+            Token::Identifier(String::from("five")),
             Token::Comma,
-            Token::Identifier("ten".to_owned()),
+            Token::Identifier(String::from("ten")),
             Token::Rparen,
             Token::Semicolon,
         ];
