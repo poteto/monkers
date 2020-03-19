@@ -73,6 +73,10 @@ impl<'a> Lexer<'a> {
             .collect()
     }
 
+    pub fn is_done(self) -> bool {
+        self.position == self.input.len()
+    }
+
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
         let token: Token;
@@ -129,8 +133,16 @@ mod tests {
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token);
+            assert_eq!(
+                expect, token,
+                "Expected to tokenize `{}`, got `{}`",
+                expect, token
+            );
         }
+        assert!(
+            lexer.is_done(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
     }
 
     #[test]
@@ -144,6 +156,8 @@ mod tests {
             };
 
             let result = add(five, ten);
+            !-/*5;
+            5 < 10 > 5;
         "#;
         let expected = vec![
             Token::Let,
@@ -187,7 +201,15 @@ mod tests {
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token);
+            assert_eq!(
+                expect, token,
+                "Expected `{}`, got `{}`",
+                expect, token
+            );
         }
+        assert!(
+            lexer.is_done(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
     }
 }
