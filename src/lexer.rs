@@ -73,7 +73,7 @@ impl<'a> Lexer<'a> {
             .collect()
     }
 
-    pub fn is_end_of_file(self) -> bool {
+    pub fn is_end_of_file(&self) -> bool {
         self.position >= self.input.len() && self.ch == '0'
     }
 
@@ -126,6 +126,18 @@ impl<'a> Lexer<'a> {
         };
         self.read_char();
         token
+    }
+}
+
+impl<'a> Iterator for Lexer<'a> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_end_of_file() {
+            None
+        } else {
+            Some(self.next_token())
+        }
     }
 }
 
