@@ -4,6 +4,32 @@
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
+## REPL
+
+Start the REPL by running `cargo run`, then entering some Monkey:
+
+```
+🐒 >> let add = fn(x, y) { x + y; };
+> Let
+> Identifier("add")
+> Assign
+> Function
+> Lparen
+> Identifier("x")
+> Comma
+> Identifier("y")
+> Rparen
+> Lbrace
+> Identifier("x")
+> Plus
+> Identifier("y")
+> Semicolon
+> Rbrace
+> Semicolon
+```
+
+Command history is saved in `history.txt`.
+
 ## Developing
 
 ### Helpful crates
