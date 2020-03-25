@@ -4,6 +4,7 @@ pub type IntegerSize = i64;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Token {
+    None,
     Illegal(char),
     EndOfFile,
 
@@ -44,8 +45,9 @@ pub enum Token {
 }
 
 impl fmt::Display for Token {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Token::None => write!(f, "None"),
             Token::Illegal(c) => write!(f, "Illegal({})", c),
             Token::EndOfFile => write!(f, "EOF"),
 
