@@ -13,7 +13,7 @@ pub enum Statement {
 }
 
 impl fmt::Display for Statement {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Statement::Let(statement) => statement.fmt(f),
         }

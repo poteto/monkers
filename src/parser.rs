@@ -76,11 +76,7 @@ mod tests {
             let y = 10;
             let foobar = 838383;
         "#;
-        let expected = vec![
-            "let x = TODO;",
-            "let y = TODO;",
-            "let foobar = TODO;",
-        ].join("");
+        let expected = vec!["let x = TODO;", "let y = TODO;", "let foobar = TODO;"].join("");
 
         let expected_len = input.trim().lines().count();
 

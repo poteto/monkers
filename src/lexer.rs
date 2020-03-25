@@ -164,7 +164,7 @@ mod tests {
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token, "Expected `{}`, got `{}`", expect, token);
+            assert_eq!(expect, token, "Expected `{}`", expect);
         }
 
         assert!(
@@ -276,14 +276,8 @@ mod tests {
 
         for expect in expected {
             let token = lexer.next_token();
-            assert_eq!(expect, token, "Expected `{}`, got `{}`", expect, token);
+            assert_eq!(expect, token, "Expected `{}`", expect);
         }
-        println!(
-            "Curr: {:?}, Pos: {}, Len: {}",
-            lexer.ch,
-            lexer.position,
-            input.len()
-        );
 
         assert!(
             lexer.is_end_of_file(),
