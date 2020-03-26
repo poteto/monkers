@@ -13,11 +13,7 @@ impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ParserError::UnhandledToken(token) => write!(f, "Unhandled token: `{}`", token),
-            ParserError::SyntaxError(error) => write!(
-                f,
-                "[Row: {}, Col: {}] {}",
-                error.row, error.col, error.message
-            ),
+            ParserError::SyntaxError(error) => error.fmt(f),
         }
     }
 }
@@ -31,7 +27,7 @@ pub struct ParserErrorMessage {
 
 impl fmt::Display for ParserErrorMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} on row {}, col {}", self.message, self.row, self.col)
+        write!(f, "[Row: {}, Col: {}] {}", self.row, self.col, self.message)
     }
 }
 
