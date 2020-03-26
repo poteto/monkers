@@ -1,6 +1,7 @@
 use std::fmt;
 
 pub type IntegerSize = i64;
+pub type IdentifierType = String;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Token {
@@ -8,7 +9,7 @@ pub enum Token {
     Illegal(char),
     EndOfFile,
 
-    Identifier(String),
+    Identifier(IdentifierType),
     Integer(IntegerSize),
     String(String),
     Boolean(bool),

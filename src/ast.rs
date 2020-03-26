@@ -1,3 +1,4 @@
+use crate::parser;
 use std::fmt;
 
 pub enum Node {
@@ -49,6 +50,7 @@ impl fmt::Display for Identifier {
 #[derive(Debug, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
+    pub errors: Vec<parser::ParserError>,
 }
 
 impl fmt::Display for Program {

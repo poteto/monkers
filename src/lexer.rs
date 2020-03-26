@@ -6,7 +6,9 @@ pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
     read_position: usize,
-    ch: char,
+    pub ch: char,
+    pub row: usize,
+    pub col: usize,
 }
 
 impl<'a> Lexer<'a> {
@@ -16,6 +18,8 @@ impl<'a> Lexer<'a> {
             position: 0,
             read_position: 0,
             ch: '0',
+            row: 1,
+            col: 0,
         };
         lexer.read_char();
         lexer
@@ -41,10 +45,15 @@ impl<'a> Lexer<'a> {
         }
         self.position = self.read_position;
         self.read_position += 1;
+        self.col += 1;
     }
 
-    fn skip_whitespace(&mut self) {
+    fn handle_whitespace(&mut self) {
         while self.ch.is_ascii_whitespace() {
+            if self.ch == '\n' || self.ch == '\r' {
+                self.col = 0;
+                self.row += 1;
+            }
             self.read_char();
         }
     }
@@ -74,11 +83,14 @@ impl<'a> Lexer<'a> {
     }
 
     pub fn is_end_of_file(&self) -> bool {
-        self.position >= self.input.len() && self.ch == '0'
+        self.read_position >= self.input.len() && self.ch == '0'
     }
 
     pub fn next_token(&mut self) -> Token {
-        self.skip_whitespace();
+        if self.is_end_of_file() {
+            return Token::EndOfFile;
+        }
+        self.handle_whitespace();
         let token: Token;
         match self.ch {
             '0' => token = Token::EndOfFile,
@@ -175,27 +187,25 @@ mod tests {
 
     #[test]
     fn it_lexes_additional_operators_and_keywords() {
-        let input = r#"
-            let five = 5;
-            let ten = 10;
+        let input = r#"let five = 5;
+let ten = 10;
 
-            let add = fn(x, y) {
-                x + y;
-            };
+let add = fn(x, y) {
+    x + y;
+};
 
-            let result = add(five, ten);
-            !-/*5;
-            5 < 10 > 5;
+let result = add(five, ten);
+!-/*5;
+5 < 10 > 5;
 
-            if (5 < 10) {
-                return true;
-            } else {
-                return false;
-            }
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
 
-            10 == 10;
-            10 != 9;
-        "#;
+10 == 10;
+10 != 9;"#;
         let expected = vec![
             Token::Let,
             Token::Identifier(String::from("five")),
@@ -277,6 +287,36 @@ mod tests {
         for expect in expected {
             let token = lexer.next_token();
             assert_eq!(expect, token, "Expected `{}`", expect);
+        }
+
+        assert!(
+            lexer.is_end_of_file(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
+    }
+
+    #[test]
+    fn it_keeps_track_of_row_and_col() {
+        let input = r#"let hello = 1;
+let world = 2;"#;
+        let expected: Vec<(char, usize, usize)> = vec![
+            ('l', 1, 1),
+            (' ', 1, 4),
+            (' ', 1, 10),
+            (' ', 1, 12),
+            (';', 1, 14),
+            ('\n', 1, 15),
+            (' ', 2, 4),
+            (' ', 2, 10),
+            (' ', 2, 12),
+            (';', 2, 14),
+            ('0', 2, 15),
+        ];
+        let mut lexer = Lexer::new(input);
+
+        for expect in expected {
+            assert_eq!(expect, (lexer.ch, lexer.row, lexer.col));
+            lexer.next_token();
         }
 
         assert!(
