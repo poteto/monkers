@@ -155,6 +155,7 @@ impl<'a> Parser<'a> {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
                 ident.to_string(),
             ))),
+            Token::Integer(i) => Ok(ast::Expression::Integer(*i)),
             _ => Err(ParserError::UnhandledToken(self.curr_token.clone())),
         }
     }
@@ -193,9 +194,7 @@ let = 10;
 let 838383;"#;
         let expected = vec![
             "[Row: 1, Col: 8] Expected `=` to follow `let`, got `5` instead",
-            "Unhandled token: `5`",
             "[Row: 2, Col: 9] Expected identifier to follow `let`, got `10` instead",
-            "Unhandled token: `10`",
             "[Row: 3, Col: 12] Expected identifier to follow `let`, got `;` instead",
         ];
         let lexer = Lexer::new(input);
@@ -206,7 +205,7 @@ let 838383;"#;
             assert_eq!(expect, &program.errors[i].to_string());
         }
 
-        assert_eq!(program.statements.len(), 0);
+        assert_eq!(program.statements.len(), 2);
     }
 
     #[test]
@@ -216,6 +215,25 @@ return 10;
 return 993322;"#;
         let expected = vec!["return TODO;", "return TODO;", "return TODO;"].join("");
         let expected_len = input.trim().lines().count();
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            program.statements.len(),
+            expected_len,
+            "Expected {} statements",
+            expected_len
+        );
+        assert_eq!(program.to_string(), expected);
+    }
+
+    #[test]
+    fn it_parses_numbers() {
+        let input = "5;";
+        let expected = "5";
+        let expected_len = 1;
 
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);

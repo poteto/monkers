@@ -1,5 +1,7 @@
-use crate::parser::ParserError;
-use crate::token::{IdentifierType, Token};
+use crate::{
+    parser::ParserError,
+    token::{IdentifierType, IntegerSize, Token},
+};
 use std::fmt;
 
 pub enum Node {
@@ -84,12 +86,14 @@ impl fmt::Display for ReturnStatement {
 #[derive(Debug, PartialEq)]
 pub enum Expression {
     Identifier(Identifier),
+    Integer(IntegerSize),
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::Integer(i) => write!(f, "{}", i),
         }
     }
 }
