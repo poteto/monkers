@@ -1,4 +1,7 @@
-use crate::parser;
+use crate::{
+    parser::ParserError,
+    token::{IdentifierType, IntegerSize, Token},
+};
 use std::fmt;
 
 pub enum Node {
@@ -7,42 +10,13 @@ pub enum Node {
     Expression(Expression),
 }
 
-// Statements
-#[derive(Debug, PartialEq)]
-pub enum Statement {
-    Let(LetStatement),
-}
-
-impl fmt::Display for Statement {
+impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Statement::Let(statement) => statement.fmt(f),
+            Node::Program(program) => program.fmt(f),
+            Node::Statement(statement) => statement.fmt(f),
+            Node::Expression(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub struct LetStatement {
-    pub name: Identifier,
-}
-
-impl fmt::Display for LetStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "let {} = TODO;", self.name)
-    }
-}
-
-// Expressions
-pub enum Expression {
-    Identifier(Identifier),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Identifier(pub String);
-
-impl fmt::Display for Identifier {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
     }
 }
 
@@ -50,7 +24,7 @@ impl fmt::Display for Identifier {
 #[derive(Debug, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
-    pub errors: Vec<parser::ParserError>,
+    pub errors: Vec<ParserError>,
 }
 
 impl fmt::Display for Program {
@@ -59,5 +33,76 @@ impl fmt::Display for Program {
             statement.fmt(f)?;
         }
         Ok(())
+    }
+}
+
+// Statements
+#[derive(Debug, PartialEq)]
+pub enum Statement {
+    Let(LetStatement),
+    Return(ReturnStatement),
+    Expression(Expression),
+}
+
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Statement::Let(statement) => statement.fmt(f),
+            Statement::Return(statement) => statement.fmt(f),
+            Statement::Expression(expression) => expression.fmt(f),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct LetStatement {
+    pub token: Token,
+    pub name: Identifier,
+}
+
+impl fmt::Display for LetStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{token} {name} = TODO;",
+            token = self.token,
+            name = self.name
+        )
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ReturnStatement {
+    pub token: Token,
+}
+
+impl fmt::Display for ReturnStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{token} TODO;", token = self.token)
+    }
+}
+
+// Expressions
+#[derive(Debug, PartialEq)]
+pub enum Expression {
+    Identifier(Identifier),
+    Integer(IntegerSize),
+}
+
+impl fmt::Display for Expression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::Integer(i) => write!(f, "{}", i),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Identifier(pub IdentifierType);
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.0)
     }
 }

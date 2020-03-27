@@ -1,7 +1,15 @@
-use crate::ast;
-use crate::lexer::Lexer;
-use crate::token::Token;
+use crate::{ast, lexer::Lexer, token::Token};
 use std::{fmt, mem};
+
+enum Precedence {
+    Lowest,
+    _Equals,
+    _LessGreater,
+    _Sum,
+    _Product,
+    _Prefix,
+    _Call,
+}
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
@@ -73,7 +81,8 @@ impl<'a> Parser<'a> {
     fn parse_statement(&mut self) -> Result<ast::Statement, ParserError> {
         match self.curr_token {
             Token::Let => self.parse_let_statement(),
-            _ => Err(ParserError::UnhandledToken(self.curr_token.clone())),
+            Token::Return => self.parse_return_statement(),
+            _ => self.parse_expression_statement(),
         }
     }
 
@@ -93,6 +102,7 @@ impl<'a> Parser<'a> {
                 }));
             }
             let statement = ast::LetStatement {
+                token: Token::Let,
                 name: ast::Identifier(ident.to_string()),
             };
             // TODO: Skip expressions until we encounter a semicolon
@@ -112,6 +122,43 @@ impl<'a> Parser<'a> {
             }))
         }
     }
+
+    fn parse_return_statement(&mut self) -> Result<ast::Statement, ParserError> {
+        self.next_token();
+        let statement = ast::ReturnStatement {
+            token: Token::Return,
+        };
+        while self.curr_token != Token::Semicolon {
+            self.next_token();
+        }
+        Ok(ast::Statement::Return(statement))
+    }
+
+    fn parse_expression_statement(&mut self) -> Result<ast::Statement, ParserError> {
+        let expression_statement;
+        match self.parse_expression(Precedence::Lowest) {
+            Ok(expression) => expression_statement = Ok(ast::Statement::Expression(expression)),
+            Err(error) => expression_statement = Err(error),
+        }
+        if self.peek_token == Token::Semicolon {
+            self.next_token();
+        }
+        expression_statement
+    }
+
+    fn parse_expression(&self, _precedence: Precedence) -> Result<ast::Expression, ParserError> {
+        self.prefix_parse()
+    }
+
+    fn prefix_parse(&self) -> Result<ast::Expression, ParserError> {
+        match &self.curr_token {
+            Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
+                ident.to_string(),
+            ))),
+            Token::Integer(i) => Ok(ast::Expression::Integer(*i)),
+            _ => Err(ParserError::UnhandledToken(self.curr_token.clone())),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +172,6 @@ mod tests {
 let y = 10;
 let foobar = 838383;"#;
         let expected = vec!["let x = TODO;", "let y = TODO;", "let foobar = TODO;"].join("");
-
         let expected_len = input.trim().lines().count();
 
         let lexer = Lexer::new(input);
@@ -148,13 +194,8 @@ let = 10;
 let 838383;"#;
         let expected = vec![
             "[Row: 1, Col: 8] Expected `=` to follow `let`, got `5` instead",
-            "Unhandled token: `5`",
-            "Unhandled token: `;`",
             "[Row: 2, Col: 9] Expected identifier to follow `let`, got `10` instead",
-            "Unhandled token: `10`",
-            "Unhandled token: `;`",
             "[Row: 3, Col: 12] Expected identifier to follow `let`, got `;` instead",
-            "Unhandled token: `;`",
         ];
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -164,6 +205,46 @@ let 838383;"#;
             assert_eq!(expect, &program.errors[i].to_string());
         }
 
-        assert_eq!(program.statements.len(), 0);
+        assert_eq!(program.statements.len(), 2);
+    }
+
+    #[test]
+    fn it_parses_return_statements() {
+        let input = r#"return 5;
+return 10;
+return 993322;"#;
+        let expected = vec!["return TODO;", "return TODO;", "return TODO;"].join("");
+        let expected_len = input.trim().lines().count();
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            program.statements.len(),
+            expected_len,
+            "Expected {} statements",
+            expected_len
+        );
+        assert_eq!(program.to_string(), expected);
+    }
+
+    #[test]
+    fn it_parses_numbers() {
+        let input = "5;";
+        let expected = "5";
+        let expected_len = 1;
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            program.statements.len(),
+            expected_len,
+            "Expected {} statements",
+            expected_len
+        );
+        assert_eq!(program.to_string(), expected);
     }
 }
