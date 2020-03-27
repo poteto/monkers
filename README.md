@@ -1,6 +1,6 @@
 # monkers 🐒 + 🦀
 
-[![Build Status](https://travis-ci.com/poteto/monkers.svg?branch=master)](https://travis-ci.com/poteto/monkers)
+[![Build Status](https://travis-ci.com/poteto/monkers.svg?branch=master)](https://travis-ci.com/poteto/monkers) [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/23775)
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
