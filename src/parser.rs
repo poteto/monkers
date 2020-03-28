@@ -7,21 +7,25 @@ enum Precedence {
     _LessGreater,
     _Sum,
     _Product,
-    _Prefix,
+    Prefix,
     _Call,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     SyntaxError(ParserErrorMessage),
+    UnhandledPrefixOperator(Token),
     UnhandledToken(Token),
 }
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParserError::UnhandledToken(token) => write!(f, "Unhandled token: `{}`", token),
             ParserError::SyntaxError(error) => error.fmt(f),
+            ParserError::UnhandledPrefixOperator(token) => {
+                write!(f, "Unhandled prefix operator: `{}`", token)
+            }
+            ParserError::UnhandledToken(token) => write!(f, "Unhandled token: `{}`", token),
         }
     }
 }
@@ -146,18 +150,31 @@ impl<'a> Parser<'a> {
         expression_statement
     }
 
-    fn parse_expression(&self, _precedence: Precedence) -> Result<ast::Expression, ParserError> {
-        self.prefix_parse()
-    }
-
-    fn prefix_parse(&self) -> Result<ast::Expression, ParserError> {
+    fn parse_expression(
+        &mut self,
+        _precedence: Precedence,
+    ) -> Result<ast::Expression, ParserError> {
         match &self.curr_token {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
                 ident.to_string(),
             ))),
             Token::Integer(i) => Ok(ast::Expression::Integer(*i)),
-            _ => Err(ParserError::UnhandledToken(self.curr_token.clone())),
+            Token::Bang | Token::Minus => self.parse_prefix_expression(),
+            _ => Err(ParserError::UnhandledPrefixOperator(
+                self.curr_token.clone(),
+            )),
         }
+    }
+
+    fn parse_prefix_expression(&mut self) -> Result<ast::Expression, ParserError> {
+        let token = self.curr_token.clone();
+        let operator = self.curr_token.to_string();
+        self.next_token();
+        Ok(ast::Expression::Prefix(ast::PrefixExpression {
+            token,
+            operator,
+            right: Box::new(self.parse_expression(Precedence::Prefix)?),
+        }))
     }
 }
 
@@ -246,5 +263,27 @@ return 993322;"#;
             expected_len
         );
         assert_eq!(program.to_string(), expected);
+    }
+
+    #[test]
+    fn it_parses_prefix_expressions() {
+        let tests = vec![("!5;", "!", "(!5)"), ("-15;", "-", "(-15)")];
+
+        for (input, expected_operator, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert_eq!(program.statements.len(), 1);
+
+            let statement = &program.statements[0];
+
+            println!("{}", statement);
+            if let Some(statement_operator) = statement.token() {
+                assert_eq!(expected_operator, statement_operator.to_string());
+            }
+
+            assert_eq!(expected_string, statement.to_string());
+        }
     }
 }

@@ -54,6 +54,16 @@ impl fmt::Display for Statement {
     }
 }
 
+impl Statement {
+    pub fn token(&self) -> Option<&Token> {
+        match self {
+            Statement::Let(statement) => Some(&statement.token),
+            Statement::Return(statement) => Some(&statement.token),
+            Statement::Expression(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct LetStatement {
     pub token: Token,
@@ -87,6 +97,7 @@ impl fmt::Display for ReturnStatement {
 pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
+    Prefix(PrefixExpression),
 }
 
 impl fmt::Display for Expression {
@@ -94,6 +105,9 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::Integer(i) => write!(f, "{}", i),
+            Expression::Prefix(expression) => {
+                write!(f, "({}{})", expression.operator, expression.right)
+            }
         }
     }
 }
@@ -105,4 +119,11 @@ impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct PrefixExpression {
+    pub token: Token,
+    pub operator: String,
+    pub right: Box<Expression>, // https://doc.rust-lang.org/book/ch15-01-box.html#enabling-recursive-types-with-boxes
 }
