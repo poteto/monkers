@@ -1,19 +1,31 @@
 use crate::{ast, lexer::Lexer, token::Token};
 use std::{fmt, mem};
 
+#[derive(PartialEq, PartialOrd)]
 enum Precedence {
     Lowest,
-    _Equals,
-    _LessGreater,
-    _Sum,
-    _Product,
+    Equals,
+    LessGreater,
+    Sum,
+    Product,
     Prefix,
     _Call,
+}
+
+fn precedence_for(token: &Token) -> Precedence {
+    match token {
+        Token::Equal | Token::NotEqual => Precedence::Equals,
+        Token::LessThan | Token::GreaterThan => Precedence::LessGreater,
+        Token::Plus | Token::Minus => Precedence::Sum,
+        Token::Slash | Token::Asterisk => Precedence::Product,
+        _ => Precedence::Lowest,
+    }
 }
 
 #[derive(Debug, PartialEq)]
 pub enum ParserError {
     SyntaxError(ParserErrorMessage),
+    UnhandledInfixOperator(Token),
     UnhandledPrefixOperator(Token),
     UnhandledToken(Token),
 }
@@ -22,6 +34,9 @@ impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ParserError::SyntaxError(error) => error.fmt(f),
+            ParserError::UnhandledInfixOperator(token) => {
+                write!(f, "Unhandled infix operator: `{}`", token)
+            }
             ParserError::UnhandledPrefixOperator(token) => {
                 write!(f, "Unhandled prefix operator: `{}`", token)
             }
@@ -150,10 +165,20 @@ impl<'a> Parser<'a> {
         expression_statement
     }
 
-    fn parse_expression(
-        &mut self,
-        _precedence: Precedence,
-    ) -> Result<ast::Expression, ParserError> {
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<ast::Expression, ParserError> {
+        let mut left_expression = self.parse_prefix();
+        if left_expression.is_err() {
+            return left_expression;
+        }
+        while self.peek_token != Token::Semicolon && precedence < precedence_for(&self.peek_token) {
+            self.next_token();
+            let infix = self.parse_infix(left_expression?.clone());
+            left_expression = infix;
+        }
+        left_expression
+    }
+
+    fn parse_prefix(&mut self) -> Result<ast::Expression, ParserError> {
         match &self.curr_token {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
                 ident.to_string(),
@@ -166,6 +191,20 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_infix(&mut self, left: ast::Expression) -> Result<ast::Expression, ParserError> {
+        match &self.curr_token {
+            Token::Plus
+            | Token::Minus
+            | Token::Slash
+            | Token::Asterisk
+            | Token::Equal
+            | Token::NotEqual
+            | Token::LessThan
+            | Token::GreaterThan => self.parse_infix_expression(left),
+            _ => Err(ParserError::UnhandledInfixOperator(self.curr_token.clone())),
+        }
+    }
+
     fn parse_prefix_expression(&mut self) -> Result<ast::Expression, ParserError> {
         let token = self.curr_token.clone();
         let operator = self.curr_token.to_string();
@@ -174,6 +213,22 @@ impl<'a> Parser<'a> {
             token,
             operator,
             right: Box::new(self.parse_expression(Precedence::Prefix)?),
+        }))
+    }
+
+    fn parse_infix_expression(
+        &mut self,
+        left: ast::Expression,
+    ) -> Result<ast::Expression, ParserError> {
+        let token = self.curr_token.clone();
+        let operator = self.curr_token.to_string();
+        let precedence = precedence_for(&self.curr_token);
+        self.next_token();
+        Ok(ast::Expression::Infix(ast::InfixExpression {
+            token,
+            operator,
+            left: Box::new(left),
+            right: Box::new(self.parse_expression(precedence)?),
         }))
     }
 }
@@ -201,6 +256,7 @@ let foobar = 838383;"#;
             "Expected {} statements",
             expected_len
         );
+        assert!(program.errors.len() == 0);
         assert_eq!(program.to_string(), expected);
     }
 
@@ -223,6 +279,7 @@ let 838383;"#;
         }
 
         assert_eq!(program.statements.len(), 2);
+        assert_eq!(program.errors.len(), 4);
     }
 
     #[test]
@@ -243,6 +300,7 @@ return 993322;"#;
             "Expected {} statements",
             expected_len
         );
+        assert!(program.errors.len() == 0);
         assert_eq!(program.to_string(), expected);
     }
 
@@ -262,11 +320,12 @@ return 993322;"#;
             "Expected {} statements",
             expected_len
         );
+        assert!(program.errors.len() == 0);
         assert_eq!(program.to_string(), expected);
     }
 
     #[test]
-    fn it_parses_prefix_expressions() {
+    fn it_parses_valid_prefix_expressions() {
         let tests = vec![("!5;", "!", "(!5)"), ("-15;", "-", "(-15)")];
 
         for (input, expected_operator, expected_string) in tests {
@@ -275,15 +334,96 @@ return 993322;"#;
             let program = parser.parse_program();
 
             assert_eq!(program.statements.len(), 1);
+            assert!(program.errors.len() == 0);
 
             let statement = &program.statements[0];
-
-            println!("{}", statement);
             if let Some(statement_operator) = statement.token() {
                 assert_eq!(expected_operator, statement_operator.to_string());
             }
 
             assert_eq!(expected_string, statement.to_string());
+        }
+    }
+
+    #[test]
+    fn it_handles_invalid_prefix_expressions() {
+        let tests = vec![
+            ("@5;", "Unhandled prefix operator: `Illegal(@)`"),
+            ("#5;", "Unhandled prefix operator: `Illegal(#)`"),
+            ("$5;", "Unhandled prefix operator: `Illegal($)`"),
+            ("%5;", "Unhandled prefix operator: `Illegal(%)`"),
+            ("^5;", "Unhandled prefix operator: `Illegal(^)`"),
+            ("&5;", "Unhandled prefix operator: `Illegal(&)`"),
+        ];
+
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert!(program.errors.len() == 1);
+            assert_eq!(expected_string, &program.errors[0].to_string());
+        }
+    }
+
+    #[test]
+    fn it_parses_valid_infix_expressions() {
+        let tests = vec![
+            ("5 + 5;", "+", "(5 + 5)"),
+            ("5 - 5;", "-", "(5 - 5)"),
+            ("5 * 5;", "*", "(5 * 5)"),
+            ("5 / 5;", "/", "(5 / 5)"),
+            ("5 > 5;", ">", "(5 > 5)"),
+            ("5 < 5;", "<", "(5 < 5)"),
+            ("5 == 5;", "==", "(5 == 5)"),
+            ("5 != 5;", "!=", "(5 != 5)"),
+        ];
+
+        for (input, expected_operator, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert_eq!(program.statements.len(), 1);
+            assert!(program.errors.len() == 0);
+
+            let statement = &program.statements[0];
+            if let Some(statement_operator) = statement.token() {
+                assert_eq!(expected_operator, statement_operator.to_string());
+            }
+
+            assert_eq!(expected_string, statement.to_string());
+        }
+    }
+
+    #[test]
+    fn it_parses_operator_precedence() {
+        let tests = vec![
+            ("-a * b;", "((-a) * b)"),
+            ("!-a;", "(!(-a))"),
+            ("a + b + c;", "((a + b) + c)"),
+            ("a + b - c;", "((a + b) - c)"),
+            ("a * b * c;", "((a * b) * c)"),
+            ("a * b / c;", "((a * b) / c)"),
+            ("a + b / c;", "(a + (b / c))"),
+            ("a + b * c + d / e - f;", "(((a + (b * c)) + (d / e)) - f)"),
+            ("3 + 4; -5 * 5;", "(3 + 4)((-5) * 5)"),
+            ("5 > 4 == 3 < 4;", "((5 > 4) == (3 < 4))"),
+            ("5 < 4 != 3 > 4;", "((5 < 4) != (3 > 4))"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            ),
+        ];
+
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            assert!(program.statements.len() != 0);
+            assert!(program.errors.len() == 0);
+            assert_eq!(expected_string, program.to_string());
         }
     }
 }

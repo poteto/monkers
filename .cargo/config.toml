@@ -1,0 +1,2 @@
+[alias]
+dev = "watch -x check -x test"

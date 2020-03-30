@@ -93,11 +93,12 @@ impl fmt::Display for ReturnStatement {
 }
 
 // Expressions
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
     Prefix(PrefixExpression),
+    Infix(InfixExpression),
 }
 
 impl fmt::Display for Expression {
@@ -105,14 +106,24 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::Integer(i) => write!(f, "{}", i),
-            Expression::Prefix(expression) => {
-                write!(f, "({}{})", expression.operator, expression.right)
-            }
+            Expression::Prefix(expression) => write!(
+                f,
+                "({operator}{right})",
+                operator = expression.operator,
+                right = expression.right
+            ),
+            Expression::Infix(expression) => write!(
+                f,
+                "({left} {operator} {right})",
+                left = expression.left,
+                operator = expression.operator,
+                right = expression.right
+            ),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub IdentifierType);
 
 impl fmt::Display for Identifier {
@@ -121,9 +132,17 @@ impl fmt::Display for Identifier {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct PrefixExpression {
     pub token: Token,
     pub operator: String,
     pub right: Box<Expression>, // https://doc.rust-lang.org/book/ch15-01-box.html#enabling-recursive-types-with-boxes
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct InfixExpression {
+    pub token: Token,
+    pub left: Box<Expression>,
+    pub operator: String,
+    pub right: Box<Expression>,
 }
