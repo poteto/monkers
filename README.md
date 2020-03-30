@@ -36,7 +36,7 @@ Command history is saved in `history.txt`.
 
 #### [`cargo-watch`](https://github.com/passcod/cargo-watch)
 
-`cargo-watch` watches over your Cargo project's source. I use it to run my tests and `cargo check` whenever a file changes:
+`cargo-watch` watches over your Cargo project's source. I use it to run my tests and `cargo check` whenever a file changes. It's aliased to `cargo dev`, which expands to:
 
 ```
 cargo watch -x check -x test
