@@ -184,6 +184,10 @@ impl<'a> Parser<'a> {
                 ident.to_string(),
             ))),
             Token::Integer(i) => Ok(ast::Expression::Integer(*i)),
+            Token::Boolean(_) => Ok(ast::Expression::Boolean(ast::BooleanExpression {
+                token: self.curr_token.clone(),
+                value: self.curr_token == Token::Boolean(true),
+            })),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
@@ -326,7 +330,12 @@ return 993322;"#;
 
     #[test]
     fn it_parses_valid_prefix_expressions() {
-        let tests = vec![("!5;", "!", "(!5)"), ("-15;", "-", "(-15)")];
+        let tests = vec![
+            ("!5;", "!", "(!5)"),
+            ("-15;", "-", "(-15)"),
+            ("!true", "!", "(!true)"),
+            ("!false", "!", "(!false)"),
+        ];
 
         for (input, expected_operator, expected_string) in tests {
             let lexer = Lexer::new(input);
@@ -377,6 +386,9 @@ return 993322;"#;
             ("5 < 5;", "<", "(5 < 5)"),
             ("5 == 5;", "==", "(5 == 5)"),
             ("5 != 5;", "!=", "(5 != 5)"),
+            ("true == true;", "==", "(true == true)"),
+            ("true != true;", "!=", "(true != true)"),
+            ("false == false;", "==", "(false == false)"),
         ];
 
         for (input, expected_operator, expected_string) in tests {
@@ -414,6 +426,10 @@ return 993322;"#;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5;",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             ),
+            ("true;", "true"),
+            ("false;", "false"),
+            ("3 > 5 == false;", "((3 > 5) == false)"),
+            ("3 < 5 == true;", "((3 < 5) == true)"),
         ];
 
         for (input, expected_string) in tests {

@@ -99,6 +99,7 @@ pub enum Expression {
     Integer(IntegerSize),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
+    Boolean(BooleanExpression),
 }
 
 impl fmt::Display for Expression {
@@ -119,6 +120,7 @@ impl fmt::Display for Expression {
                 operator = expression.operator,
                 right = expression.right
             ),
+            Expression::Boolean(boolean) => boolean.value.fmt(f),
         }
     }
 }
@@ -145,4 +147,10 @@ pub struct InfixExpression {
     pub left: Box<Expression>,
     pub operator: String,
     pub right: Box<Expression>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BooleanExpression {
+    pub token: Token,
+    pub value: bool,
 }
