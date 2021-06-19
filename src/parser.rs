@@ -84,6 +84,20 @@ impl<'a> Parser<'a> {
         self.peek_token = self.lexer.next_token();
     }
 
+    pub fn expect_peek(&mut self, expected_token: Token) -> Result<Token, ParserError> {
+        if self.peek_token == expected_token {
+            self.next_token()
+        }
+        Err(ParserError::SyntaxError(ParserErrorMessage {
+            message: format!(
+                "Expected next character to be `{}`, got `{}` instead",
+                expected_token, self.peek_token,
+            ),
+            col: self.lexer.col,
+            row: self.lexer.row,
+        }))
+    }
+
     pub fn parse_program(&mut self) -> ast::Program {
         let mut statements: Vec<ast::Statement> = Vec::new();
         let mut errors: Vec<ParserError> = Vec::new();
@@ -178,6 +192,24 @@ impl<'a> Parser<'a> {
         left_expression
     }
 
+    fn parse_grouped_expression(&mut self) -> Result<ast::Expression, ParserError> {
+        self.next_token();
+        let expression = self.parse_expression(Precedence::Lowest);
+        if self.peek_token != Token::Rparen {
+            return Err(ParserError::SyntaxError(ParserErrorMessage {
+                message: format!(
+                    "Expected `{}`, got `{}` instead",
+                    Token::Rparen,
+                    self.peek_token
+                ),
+                row: self.lexer.row,
+                col: self.lexer.col,
+            }));
+        }
+        self.next_token();
+        expression
+    }
+
     fn parse_prefix(&mut self) -> Result<ast::Expression, ParserError> {
         match &self.curr_token {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
@@ -189,6 +221,7 @@ impl<'a> Parser<'a> {
                 value: self.curr_token == Token::Boolean(true),
             })),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
+            Token::Lparen => self.parse_grouped_expression(),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
@@ -430,6 +463,11 @@ return 993322;"#;
             ("false;", "false"),
             ("3 > 5 == false;", "((3 > 5) == false)"),
             ("3 < 5 == true;", "((3 < 5) == true)"),
+            ("1 + (2 + 3) + 4;", "((1 + (2 + 3)) + 4)"),
+            ("(5 + 5) * 2;", "((5 + 5) * 2)"),
+            ("2 / (5 + 5);", "(2 / (5 + 5))"),
+            ("-(5 + 5);", "(-(5 + 5))"),
+            ("!(true == true);", "(!(true == true))"),
         ];
 
         for (input, expected_string) in tests {
@@ -437,9 +475,13 @@ return 993322;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
+            if !program.errors.is_empty() {
+                eprintln!("{:?}", program.errors);
+            }
+
+            assert_eq!(expected_string, program.to_string());
             assert!(program.statements.len() != 0);
             assert!(program.errors.len() == 0);
-            assert_eq!(expected_string, program.to_string());
         }
     }
 }
