@@ -1,4 +1,8 @@
-use crate::{ast, lexer::Lexer, token::Token};
+use crate::{
+    ast::{self, Expression},
+    lexer::Lexer,
+    token::Token,
+};
 use std::{fmt, mem};
 
 #[derive(PartialEq, PartialOrd)]
@@ -78,24 +82,24 @@ impl<'a> Parser<'a> {
     }
 
     pub fn next_token(&mut self) -> () {
-        // https://stackoverflow.com/a/39329993
-        // swap curr and peek pointers
         mem::swap(&mut self.curr_token, &mut self.peek_token);
         self.peek_token = self.lexer.next_token();
     }
 
-    pub fn expect_peek(&mut self, expected_token: Token) -> Result<Token, ParserError> {
+    pub fn expect_peek(&mut self, expected_token: Token) -> Result<(), ParserError> {
         if self.peek_token == expected_token {
-            self.next_token()
+            self.next_token();
+            Ok(())
+        } else {
+            Err(ParserError::SyntaxError(ParserErrorMessage {
+                message: format!(
+                    "Expected next character to be `{}`, got `{}` instead",
+                    expected_token, self.peek_token,
+                ),
+                col: self.lexer.col,
+                row: self.lexer.row,
+            }))
         }
-        Err(ParserError::SyntaxError(ParserErrorMessage {
-            message: format!(
-                "Expected next character to be `{}`, got `{}` instead",
-                expected_token, self.peek_token,
-            ),
-            col: self.lexer.col,
-            row: self.lexer.row,
-        }))
     }
 
     pub fn parse_program(&mut self) -> ast::Program {
@@ -179,6 +183,19 @@ impl<'a> Parser<'a> {
         expression_statement
     }
 
+    fn parse_block_statement(&mut self) -> Result<ast::BlockStatement, ParserError> {
+        let token = self.curr_token.clone();
+        let mut statements = Vec::new();
+        self.next_token();
+        while self.curr_token != Token::Rbrace && self.curr_token != Token::EndOfFile {
+            if let Ok(statement) = self.parse_statement() {
+                statements.push(statement)
+            }
+            self.next_token();
+        }
+        Ok(ast::BlockStatement { token, statements })
+    }
+
     fn parse_expression(&mut self, precedence: Precedence) -> Result<ast::Expression, ParserError> {
         let mut left_expression = self.parse_prefix();
         if left_expression.is_err() {
@@ -210,6 +227,42 @@ impl<'a> Parser<'a> {
         expression
     }
 
+    fn parse_if_expression(&mut self) -> Result<ast::Expression, ParserError> {
+        let token = self.curr_token.clone();
+        self.expect_peek(Token::Lparen)?;
+
+        self.next_token();
+        if let Ok(condition) = self.parse_expression(Precedence::Lowest) {
+            let condition = Some(Box::new(condition));
+            self.expect_peek(Token::Rparen)?;
+            self.expect_peek(Token::Lbrace)?;
+
+            let mut expression = ast::IfExpression {
+                token,
+                condition,
+                consequence: Default::default(),
+                alternative: Default::default(),
+            };
+            if let Ok(statement) = self.parse_block_statement() {
+                expression.consequence = Some(statement);
+            }
+            if self.peek_token == Token::Else {
+                self.next_token();
+                self.expect_peek(Token::Lbrace)?;
+                if let Ok(statement) = self.parse_block_statement() {
+                    expression.alternative = Some(statement)
+                }
+            }
+            Ok(Expression::If(expression))
+        } else {
+            Err(ParserError::SyntaxError(ParserErrorMessage {
+                message: format!("Expected a condition expression",),
+                row: self.lexer.row,
+                col: self.lexer.col,
+            }))
+        }
+    }
+
     fn parse_prefix(&mut self) -> Result<ast::Expression, ParserError> {
         match &self.curr_token {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
@@ -222,6 +275,7 @@ impl<'a> Parser<'a> {
             })),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
+            Token::If => self.parse_if_expression(),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
@@ -294,6 +348,27 @@ let foobar = 838383;"#;
             expected_len
         );
         assert!(program.errors.len() == 0);
+        assert_eq!(program.to_string(), expected);
+    }
+
+    #[test]
+    fn it_parses_if_statements() {
+        let input = "if (x < y) { x } else { y }";
+        let expected_len = 1;
+        let expected = "if (x < y) x else y";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            program.statements.len(),
+            expected_len,
+            "Expected {} statements",
+            expected_len
+        );
+
+        assert!(program.errors.is_empty());
         assert_eq!(program.to_string(), expected);
     }
 
