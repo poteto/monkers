@@ -37,11 +37,12 @@ impl fmt::Display for Program {
 }
 
 // Statements
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let(LetStatement),
     Return(ReturnStatement),
     Expression(Expression),
+    Block(BlockStatement),
 }
 
 impl fmt::Display for Statement {
@@ -50,6 +51,7 @@ impl fmt::Display for Statement {
             Statement::Let(statement) => statement.fmt(f),
             Statement::Return(statement) => statement.fmt(f),
             Statement::Expression(expression) => expression.fmt(f),
+            Statement::Block(statement) => statement.fmt(f),
         }
     }
 }
@@ -60,11 +62,12 @@ impl Statement {
             Statement::Let(statement) => Some(&statement.token),
             Statement::Return(statement) => Some(&statement.token),
             Statement::Expression(_) => None,
+            Statement::Block(statement) => Some(&statement.token),
         }
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
@@ -81,7 +84,7 @@ impl fmt::Display for LetStatement {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ReturnStatement {
     pub token: Token,
 }
@@ -89,6 +92,21 @@ pub struct ReturnStatement {
 impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{token} TODO;", token = self.token)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockStatement {
+    pub token: Token,
+    pub statements: Vec<Statement>,
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for statement in self.statements.iter() {
+            write!(f, "{}", statement)?;
+        }
+        Ok(())
     }
 }
 
@@ -100,6 +118,7 @@ pub enum Expression {
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Boolean(BooleanExpression),
+    If(IfExpression),
 }
 
 impl fmt::Display for Expression {
@@ -121,6 +140,18 @@ impl fmt::Display for Expression {
                 right = expression.right
             ),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
+            Expression::If(expression) => {
+                if let (Some(condition), Some(consequence)) = (
+                    expression.condition.as_ref(),
+                    expression.consequence.as_ref(),
+                ) {
+                    write!(f, "if {cond} {cons}", cond = condition, cons = consequence)?;
+                    if let Some(alternative) = &expression.alternative {
+                        write!(f, " else {alt}", alt = alternative)?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -138,7 +169,7 @@ impl fmt::Display for Identifier {
 pub struct PrefixExpression {
     pub token: Token,
     pub operator: String,
-    pub right: Box<Expression>, // https://doc.rust-lang.org/book/ch15-01-box.html#enabling-recursive-types-with-boxes
+    pub right: Box<Expression>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -153,4 +184,12 @@ pub struct InfixExpression {
 pub struct BooleanExpression {
     pub token: Token,
     pub value: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IfExpression {
+    pub token: Token,
+    pub condition: Option<Box<Expression>>,
+    pub consequence: Option<BlockStatement>,
+    pub alternative: Option<BlockStatement>,
 }
