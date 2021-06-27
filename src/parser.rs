@@ -125,7 +125,7 @@ impl<'a> Parser<'a> {
 
     fn parse_let_statement(&mut self) -> Result<ast::Statement, ParserError> {
         self.next_token();
-        if let Token::Identifier(ident) = &self.curr_token {
+        if let Token::Identifier(ident) = self.curr_token.clone() {
             if self.peek_token != Token::Assign {
                 return Err(ParserError::SyntaxError(ParserErrorMessage {
                     message: format!(
@@ -212,18 +212,7 @@ impl<'a> Parser<'a> {
     fn parse_grouped_expression(&mut self) -> Result<ast::Expression, ParserError> {
         self.next_token();
         let expression = self.parse_expression(Precedence::Lowest);
-        if self.peek_token != Token::Rparen {
-            return Err(ParserError::SyntaxError(ParserErrorMessage {
-                message: format!(
-                    "Expected `{}`, got `{}` instead",
-                    Token::Rparen,
-                    self.peek_token
-                ),
-                row: self.lexer.row,
-                col: self.lexer.col,
-            }));
-        }
-        self.next_token();
+        self.expect_peek(Token::Rparen)?;
         expression
     }
 
@@ -347,7 +336,7 @@ let foobar = 838383;"#;
             "Expected {} statements",
             expected_len
         );
-        assert!(program.errors.len() == 0);
+        assert!(program.errors.is_empty());
         assert_eq!(program.to_string(), expected);
     }
 
@@ -412,7 +401,7 @@ return 993322;"#;
             "Expected {} statements",
             expected_len
         );
-        assert!(program.errors.len() == 0);
+        assert!(program.errors.is_empty());
         assert_eq!(program.to_string(), expected);
     }
 
@@ -432,7 +421,7 @@ return 993322;"#;
             "Expected {} statements",
             expected_len
         );
-        assert!(program.errors.len() == 0);
+        assert!(program.errors.is_empty());
         assert_eq!(program.to_string(), expected);
     }
 
@@ -451,7 +440,7 @@ return 993322;"#;
             let program = parser.parse_program();
 
             assert_eq!(program.statements.len(), 1);
-            assert!(program.errors.len() == 0);
+            assert!(program.errors.is_empty());
 
             let statement = &program.statements[0];
             if let Some(statement_operator) = statement.token() {
@@ -505,7 +494,7 @@ return 993322;"#;
             let program = parser.parse_program();
 
             assert_eq!(program.statements.len(), 1);
-            assert!(program.errors.len() == 0);
+            assert!(program.errors.is_empty());
 
             let statement = &program.statements[0];
             if let Some(statement_operator) = statement.token() {
@@ -556,7 +545,7 @@ return 993322;"#;
 
             assert_eq!(expected_string, program.to_string());
             assert!(program.statements.len() != 0);
-            assert!(program.errors.len() == 0);
+            assert!(program.errors.is_empty());
         }
     }
 }
