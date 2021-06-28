@@ -103,8 +103,8 @@ pub struct BlockStatement {
 
 impl fmt::Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for statement in self.statements.iter() {
-            write!(f, "{}", statement)?;
+        for statement in &self.statements {
+            statement.fmt(f)?;
         }
         Ok(())
     }
@@ -119,13 +119,14 @@ pub enum Expression {
     Infix(InfixExpression),
     Boolean(BooleanExpression),
     If(IfExpression),
+    Function(FunctionLiteral),
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(ident) => write!(f, "{}", ident),
-            Expression::Integer(i) => write!(f, "{}", i),
+            Expression::Identifier(ident) => ident.fmt(f),
+            Expression::Integer(i) => i.fmt(f),
             Expression::Prefix(expression) => write!(
                 f,
                 "({operator}{right})",
@@ -145,13 +146,20 @@ impl fmt::Display for Expression {
                     expression.condition.as_ref(),
                     expression.consequence.as_ref(),
                 ) {
-                    write!(f, "if {cond} {cons}", cond = condition, cons = consequence)?;
+                    write!(
+                        f,
+                        "{token} {cond} {cons}",
+                        token = Token::If,
+                        cond = condition,
+                        cons = consequence
+                    )?;
                     if let Some(alternative) = &expression.alternative {
-                        write!(f, " else {alt}", alt = alternative)?;
+                        write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
                     }
                 }
                 Ok(())
             }
+            Expression::Function(expression) => expression.fmt(f),
         }
     }
 }
@@ -161,7 +169,8 @@ pub struct Identifier(pub IdentifierType);
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.0)
+        self.0.fmt(f)?;
+        Ok(())
     }
 }
 
@@ -192,4 +201,28 @@ pub struct IfExpression {
     pub condition: Option<Box<Expression>>,
     pub consequence: Option<BlockStatement>,
     pub alternative: Option<BlockStatement>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionLiteral {
+    pub token: Token,
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+}
+
+impl fmt::Display for FunctionLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{token}({params}) {{{body}}}",
+            token = Token::Function,
+            params = &self
+                .parameters
+                .iter()
+                .map(|ident| ident.to_string())
+                .collect::<Vec<String>>()
+                .join(", "),
+            body = self.body
+        )
+    }
 }
