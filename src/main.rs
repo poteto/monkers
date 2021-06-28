@@ -1,4 +1,4 @@
-use monkers::lexer::Lexer;
+use monkers::{lexer::Lexer, parser::Parser};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 
@@ -13,8 +13,13 @@ fn main() {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 let lexer = Lexer::new(&line);
-                for token in lexer {
-                    println!("> {:?}", token);
+                let mut parser = Parser::new(lexer);
+                let program = parser.parse_program();
+
+                if !program.errors.is_empty() {
+                    eprintln!("{:#?}", program.errors);
+                } else {
+                    println!("{:#?}", program.statements);
                 }
             }
             Err(ReadlineError::Interrupted) => {
