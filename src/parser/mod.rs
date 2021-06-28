@@ -1,9 +1,12 @@
+mod error;
+
+pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{self, Expression},
     lexer::Lexer,
     token::Token,
 };
-use std::{fmt, mem};
+use std::mem;
 
 #[derive(PartialEq, PartialOrd)]
 enum Precedence {
@@ -23,42 +26,6 @@ fn precedence_for(token: &Token) -> Precedence {
         Token::Plus | Token::Minus => Precedence::Sum,
         Token::Slash | Token::Asterisk => Precedence::Product,
         _ => Precedence::Lowest,
-    }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ParserError {
-    SyntaxError(ParserErrorMessage),
-    UnhandledInfixOperator(Token),
-    UnhandledPrefixOperator(Token),
-    UnhandledToken(Token),
-}
-
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ParserError::SyntaxError(error) => error.fmt(f),
-            ParserError::UnhandledInfixOperator(token) => {
-                write!(f, "Unhandled infix operator: `{}`", token)
-            }
-            ParserError::UnhandledPrefixOperator(token) => {
-                write!(f, "Unhandled prefix operator: `{}`", token)
-            }
-            ParserError::UnhandledToken(token) => write!(f, "Unhandled token: `{}`", token),
-        }
-    }
-}
-
-#[derive(Debug, Default, PartialEq)]
-pub struct ParserErrorMessage {
-    message: String,
-    row: usize,
-    col: usize,
-}
-
-impl fmt::Display for ParserErrorMessage {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "[Row: {}, Col: {}] {}", self.row, self.col, self.message)
     }
 }
 
@@ -91,14 +58,10 @@ impl<'a> Parser<'a> {
             self.next_token();
             Ok(())
         } else {
-            Err(ParserError::SyntaxError(ParserErrorMessage {
-                message: format!(
-                    "Expected next character to be `{}`, got `{}` instead",
-                    expected_token, self.peek_token,
-                ),
-                col: self.lexer.col,
-                row: self.lexer.row,
-            }))
+            Err(self.parse_syntax_error(format!(
+                "Expected next character to be `{}`, got `{}` instead",
+                expected_token, self.peek_token,
+            )))
         }
     }
 
@@ -127,16 +90,12 @@ impl<'a> Parser<'a> {
         self.next_token();
         if let Token::Identifier(ident) = self.curr_token.clone() {
             if self.peek_token != Token::Assign {
-                return Err(ParserError::SyntaxError(ParserErrorMessage {
-                    message: format!(
-                        "Expected `{}` to follow `{}`, got `{}` instead",
-                        Token::Assign,
-                        Token::Let,
-                        self.peek_token
-                    ),
-                    col: self.lexer.col,
-                    row: self.lexer.row,
-                }));
+                return Err(self.parse_syntax_error(format!(
+                    "Expected `{}` to follow `{}`, got `{}` instead",
+                    Token::Assign,
+                    Token::Let,
+                    self.peek_token
+                )));
             }
             let statement = ast::LetStatement {
                 token: Token::Let,
@@ -148,15 +107,11 @@ impl<'a> Parser<'a> {
             }
             Ok(ast::Statement::Let(statement))
         } else {
-            Err(ParserError::SyntaxError(ParserErrorMessage {
-                message: format!(
-                    "Expected identifier to follow `{}`, got `{}` instead",
-                    Token::Let,
-                    self.peek_token
-                ),
-                row: self.lexer.row,
-                col: self.lexer.col,
-            }))
+            Err(self.parse_syntax_error(format!(
+                "Expected identifier to follow `{}`, got `{}` instead",
+                Token::Let,
+                self.peek_token
+            )))
         }
     }
 
@@ -244,11 +199,7 @@ impl<'a> Parser<'a> {
             }
             Ok(Expression::If(expression))
         } else {
-            Err(ParserError::SyntaxError(ParserErrorMessage {
-                message: format!("Expected a condition expression",),
-                row: self.lexer.row,
-                col: self.lexer.col,
-            }))
+            Err(self.parse_syntax_error(format!("Expected a condition expression",)))
         }
     }
 
@@ -310,6 +261,14 @@ impl<'a> Parser<'a> {
             left: Box::new(left),
             right: Box::new(self.parse_expression(precedence)?),
         }))
+    }
+
+    fn parse_syntax_error(&self, message: String) -> ParserError {
+        ParserError::SyntaxError(ParserErrorMessage {
+            message,
+            row: self.lexer.row,
+            col: self.lexer.col,
+        })
     }
 }
 
