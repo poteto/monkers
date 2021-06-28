@@ -1,6 +1,6 @@
 # monkers 🐒 + 🦀
 
-[![Build Status](https://travis-ci.com/poteto/monkers.svg?branch=master)](https://travis-ci.com/poteto/monkers) [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/23775)
+[![Rust](https://github.com/poteto/monkers/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/poteto/monkers/actions/workflows/rust.yml) [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/23775)
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
@@ -43,11 +43,6 @@ cargo watch -x check -x test
 ```
 
 Optionally you can append the `RUST_BACKTRACE=1` flag to get backtraces.
-
-### Helpful vscode extensions
-
--   [rls-vscode](https://github.com/rust-lang/rls-vscode) - RLS-based plugin for VSCode
--   [vscode-cargo](https://github.com/panicbit/vscode-cargo) - Integration with cargo and cargo tools
 
 ## Contributing
 
