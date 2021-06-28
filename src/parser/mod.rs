@@ -2,7 +2,7 @@ mod error;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
-    ast::{self, Expression},
+    ast::{self, Expression, FunctionLiteral, Identifier},
     lexer::Lexer,
     token::Token,
 };
@@ -203,6 +203,39 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_function_literal(&mut self) -> Result<ast::Expression, ParserError> {
+        let token = self.curr_token.clone();
+        self.expect_peek(Token::Lparen)?;
+        let parameters = self.parse_function_parameters()?;
+        self.expect_peek(Token::Lbrace)?;
+        let body = self.parse_block_statement()?;
+        Ok(Expression::Function(FunctionLiteral {
+            token,
+            parameters,
+            body,
+        }))
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {
+        let mut identifiers: Vec<Identifier> = Vec::new();
+        if self.peek_token == Token::Rparen {
+            self.next_token();
+            return Ok(identifiers);
+        }
+
+        self.next_token();
+        identifiers.push(Identifier(self.curr_token.to_string()));
+
+        while self.peek_token == Token::Comma {
+            self.next_token();
+            self.next_token();
+            identifiers.push(Identifier(self.curr_token.to_string()));
+        }
+
+        self.expect_peek(Token::Rparen)?;
+        Ok(identifiers)
+    }
+
     fn parse_prefix(&mut self) -> Result<ast::Expression, ParserError> {
         match &self.curr_token {
             Token::Identifier(ident) => Ok(ast::Expression::Identifier(ast::Identifier(
@@ -216,6 +249,7 @@ impl<'a> Parser<'a> {
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
+            Token::Function => self.parse_function_literal(),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
@@ -491,6 +525,36 @@ return 993322;"#;
             ("2 / (5 + 5);", "(2 / (5 + 5))"),
             ("-(5 + 5);", "(-(5 + 5))"),
             ("!(true == true);", "(!(true == true))"),
+        ];
+
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            if !program.errors.is_empty() {
+                eprintln!("{:?}", program.errors);
+            }
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(program.statements.len() != 0);
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_function_literals() {
+        let tests = vec![
+            (
+                "fn(x, y) { x + y; };",
+                "fn(Identifier(x), Identifier(y)) {(x + y)}",
+            ),
+            ("fn() {};", "fn() {}"),
+            ("fn(x) {};", "fn(Identifier(x)) {}"),
+            (
+                "fn(x, y, z) {};",
+                "fn(Identifier(x), Identifier(y), Identifier(z)) {}",
+            ),
         ];
 
         for (input, expected_string) in tests {
