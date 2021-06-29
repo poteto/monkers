@@ -342,24 +342,25 @@ mod tests {
 
     #[test]
     fn it_parses_let_statements() {
-        let input = r#"let x = 5;
-let y = 10;
-let foobar = 838383;"#;
-        let expected = vec!["let x = TODO;", "let y = TODO;", "let foobar = TODO;"].join("");
-        let expected_len = input.trim().lines().count();
+        let tests = vec![
+            ("let x = 5;", "let x = TODO;"),
+            ("let y = 10;", "let y = TODO;"),
+            ("let foobar = 838383;", "let foobar = TODO;"),
+        ];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(
-            program.statements.len(),
-            expected_len,
-            "Expected {} statements",
-            expected_len
-        );
-        assert!(program.errors.is_empty());
-        assert_eq!(program.to_string(), expected);
+            if !program.errors.is_empty() {
+                eprintln!("{:?}", program.errors);
+            }
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
     }
 
     #[test]
@@ -407,24 +408,25 @@ let 838383;"#;
 
     #[test]
     fn it_parses_return_statements() {
-        let input = r#"return 5;
-return 10;
-return 993322;"#;
-        let expected = vec!["return TODO;", "return TODO;", "return TODO;"].join("");
-        let expected_len = input.trim().lines().count();
+        let tests = vec![
+            ("return 5;", "return TODO;"),
+            ("return 10;", "return TODO;"),
+            ("return 993322;", "return TODO;"),
+        ];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(
-            program.statements.len(),
-            expected_len,
-            "Expected {} statements",
-            expected_len
-        );
-        assert!(program.errors.is_empty());
-        assert_eq!(program.to_string(), expected);
+            if !program.errors.is_empty() {
+                eprintln!("{:?}", program.errors);
+            }
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
     }
 
     #[test]
