@@ -139,7 +139,6 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_block_statement(&mut self) -> Result<BlockStatement, ParserError> {
-        let token = self.curr_token.clone();
         let mut statements = Vec::new();
         self.next_token();
         while self.curr_token != Token::Rbrace && self.curr_token != Token::EndOfFile {
@@ -148,7 +147,7 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(BlockStatement { token, statements })
+        Ok(BlockStatement { token: Token::Lbrace, statements })
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -172,17 +171,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_if_expression(&mut self) -> Result<Expression, ParserError> {
-        let token = self.curr_token.clone();
         self.expect_peek(Token::Lparen)?;
-
         self.next_token();
         if let Ok(condition) = self.parse_expression(Precedence::Lowest) {
             let condition = Some(Box::new(condition));
             self.expect_peek(Token::Rparen)?;
             self.expect_peek(Token::Lbrace)?;
-
             let mut expression = IfExpression {
-                token,
+                token: Token::If,
                 condition,
                 consequence: Default::default(),
                 alternative: Default::default(),
@@ -204,13 +200,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_function_literal(&mut self) -> Result<Expression, ParserError> {
-        let token = self.curr_token.clone();
         self.expect_peek(Token::Lparen)?;
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
         let body = self.parse_block_statement()?;
         Ok(Expression::Function(FunctionLiteral {
-            token,
+            token: Token::Function,
             parameters,
             body,
         }))
@@ -271,7 +266,7 @@ impl<'a> Parser<'a> {
 
     fn parse_prefix_expression(&mut self) -> Result<Expression, ParserError> {
         let token = self.curr_token.clone();
-        let operator = self.curr_token.to_string();
+        let operator = token.to_string();
         self.next_token();
         Ok(Expression::Prefix(PrefixExpression {
             token,
@@ -282,8 +277,8 @@ impl<'a> Parser<'a> {
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
         let token = self.curr_token.clone();
-        let operator = self.curr_token.to_string();
-        let precedence = precedence_for(&self.curr_token);
+        let operator = token.to_string();
+        let precedence = precedence_for(&token);
         self.next_token();
         Ok(Expression::Infix(InfixExpression {
             token,
@@ -295,7 +290,7 @@ impl<'a> Parser<'a> {
 
     fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
         Ok(Expression::Call(CallExpression {
-            token: self.curr_token.clone(),
+            token: Token::Lparen,
             function: Box::new(left),
             arguments: self.parse_call_arguments()?,
         }))
