@@ -92,22 +92,16 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_let_statement(&mut self) -> Result<Statement, ParserError> {
-        self.next_token();
-        if let Token::Identifier(ident) = self.curr_token.clone() {
-            if self.peek_token != Token::Assign {
-                return Err(self.parse_syntax_error(format!(
-                    "Expected `{}` to follow `{}`, got `{}` instead",
-                    Token::Assign,
-                    Token::Let,
-                    self.peek_token
-                )));
-            }
+        if let Token::Identifier(ident) = self.peek_token.clone() {
+            self.next_token(); // let -> identifier
+            self.expect_peek(Token::Assign)?;
+            self.next_token();
             let statement = LetStatement {
                 token: Token::Let,
-                name: Identifier(ident.to_string()),
+                name: Identifier(ident),
+                value: self.parse_expression(Precedence::Lowest)?
             };
-            // TODO: Skip expressions until we encounter a semicolon
-            while self.curr_token != Token::Semicolon {
+            if self.peek_token == Token::Semicolon {
                 self.next_token();
             }
             Ok(Statement::Let(statement))
@@ -124,8 +118,9 @@ impl<'a> Parser<'a> {
         self.next_token();
         let statement = ReturnStatement {
             token: Token::Return,
+            return_value: self.parse_expression(Precedence::Lowest)?
         };
-        while self.curr_token != Token::Semicolon {
+        if self.peek_token == Token::Semicolon {
             self.next_token();
         }
         Ok(Statement::Return(statement))
@@ -343,9 +338,9 @@ mod tests {
     #[test]
     fn it_parses_let_statements() {
         let tests = vec![
-            ("let x = 5;", "let x = TODO;"),
-            ("let y = 10;", "let y = TODO;"),
-            ("let foobar = 838383;", "let foobar = TODO;"),
+            ("let x = 5;", "let x = 5;"),
+            ("let y = 10;", "let y = 10;"),
+            ("let foobar = 838383;", "let foobar = 838383;"),
         ];
 
         for (input, expected_string) in tests {
@@ -390,9 +385,10 @@ mod tests {
 let = 10;
 let 838383;"#;
         let expected = vec![
-            "[Row: 1, Col: 8] Expected `=` to follow `let`, got `5` instead",
-            "[Row: 2, Col: 9] Expected identifier to follow `let`, got `10` instead",
-            "[Row: 3, Col: 12] Expected identifier to follow `let`, got `;` instead",
+            "[Row: 1, Col: 8] Expected next character to be `=`, got `5` instead",
+            "[Row: 2, Col: 6] Expected identifier to follow `let`, got `=` instead",
+            "Unhandled prefix operator: `=`",
+            "[Row: 3, Col: 11] Expected identifier to follow `let`, got `838383` instead",
         ];
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
@@ -402,16 +398,16 @@ let 838383;"#;
             assert_eq!(expect, &program.errors[i].to_string());
         }
 
-        assert_eq!(program.statements.len(), 2);
+        assert_eq!(program.statements.len(), 3);
         assert_eq!(program.errors.len(), 4);
     }
 
     #[test]
     fn it_parses_return_statements() {
         let tests = vec![
-            ("return 5;", "return TODO;"),
-            ("return 10;", "return TODO;"),
-            ("return 993322;", "return TODO;"),
+            ("return 5;", "return 5;"),
+            ("return 10;", "return 10;"),
+            ("return 993322;", "return 993322;"),
         ];
 
         for (input, expected_string) in tests {

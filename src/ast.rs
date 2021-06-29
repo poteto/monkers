@@ -71,15 +71,17 @@ impl Statement {
 pub struct LetStatement {
     pub token: Token,
     pub name: Identifier,
+    pub value: Expression,
 }
 
 impl fmt::Display for LetStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{token} {name} = TODO;",
+            "{token} {name} = {value};",
             token = self.token,
-            name = self.name
+            name = self.name,
+            value = self.value,
         )
     }
 }
@@ -87,11 +89,17 @@ impl fmt::Display for LetStatement {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReturnStatement {
     pub token: Token,
+    pub return_value: Expression,
 }
 
 impl fmt::Display for ReturnStatement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{token} TODO;", token = self.token)
+        write!(
+            f,
+            "{token} {return_value};",
+            token = self.token,
+            return_value = self.return_value
+        )
     }
 }
 
