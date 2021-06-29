@@ -120,6 +120,7 @@ pub enum Expression {
     Boolean(BooleanExpression),
     If(IfExpression),
     Function(FunctionLiteral),
+    Call(CallExpression),
 }
 
 impl fmt::Display for Expression {
@@ -160,6 +161,7 @@ impl fmt::Display for Expression {
                 Ok(())
             }
             Expression::Function(expression) => expression.fmt(f),
+            Expression::Call(expression) => expression.fmt(f),
         }
     }
 }
@@ -223,6 +225,29 @@ impl fmt::Display for FunctionLiteral {
                 .collect::<Vec<String>>()
                 .join(", "),
             body = self.body
+        )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallExpression {
+    pub token: Token,
+    pub function: Box<Expression>,
+    pub arguments: Vec<Expression>,
+}
+
+impl fmt::Display for CallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{func}({args})",
+            func = self.function,
+            args = self
+                .arguments
+                .iter()
+                .map(|arg| arg.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
         )
     }
 }

@@ -3,8 +3,9 @@ mod error;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        BlockStatement, BooleanExpression, Expression, FunctionLiteral, Identifier, IfExpression,
-        InfixExpression, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+        BlockStatement, BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier,
+        IfExpression, InfixExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
+        Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -19,7 +20,7 @@ enum Precedence {
     Sum,
     Product,
     Prefix,
-    _Call,
+    Call,
 }
 
 fn precedence_for(token: &Token) -> Precedence {
@@ -28,6 +29,7 @@ fn precedence_for(token: &Token) -> Precedence {
         Token::LessThan | Token::GreaterThan => Precedence::LessGreater,
         Token::Plus | Token::Minus => Precedence::Sum,
         Token::Slash | Token::Asterisk => Precedence::Product,
+        Token::Lparen => Precedence::Call,
         _ => Precedence::Lowest,
     }
 }
@@ -267,6 +269,7 @@ impl<'a> Parser<'a> {
             | Token::NotEqual
             | Token::LessThan
             | Token::GreaterThan => self.parse_infix_expression(left),
+            Token::Lparen => self.parse_call_expression(left),
             _ => Err(ParserError::UnhandledInfixOperator(self.curr_token.clone())),
         }
     }
@@ -293,6 +296,34 @@ impl<'a> Parser<'a> {
             left: Box::new(left),
             right: Box::new(self.parse_expression(precedence)?),
         }))
+    }
+
+    fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
+        Ok(Expression::Call(CallExpression {
+            token: self.curr_token.clone(),
+            function: Box::new(left),
+            arguments: self.parse_call_arguments()?,
+        }))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>, ParserError> {
+        let mut arguments: Vec<Expression> = Vec::new();
+        if self.peek_token == Token::Rparen {
+            self.next_token();
+            return Ok(arguments);
+        }
+
+        self.next_token();
+        arguments.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token == Token::Comma {
+            self.next_token();
+            self.next_token();
+            arguments.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        self.expect_peek(Token::Rparen)?;
+        Ok(arguments)
     }
 
     fn parse_syntax_error(&self, message: String) -> ParserError {
@@ -433,7 +464,7 @@ return 993322;"#;
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
 
-            let statement = &program.statements[0];
+            let statement = program.statements.first().unwrap();
             if let Some(statement_operator) = statement.token() {
                 assert_eq!(expected_operator, statement_operator.to_string());
             }
@@ -459,7 +490,7 @@ return 993322;"#;
             let program = parser.parse_program();
 
             assert!(program.errors.len() == 1);
-            assert_eq!(expected_string, &program.errors[0].to_string());
+            assert_eq!(expected_string, program.errors.first().unwrap().to_string());
         }
     }
 
@@ -487,7 +518,7 @@ return 993322;"#;
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
 
-            let statement = &program.statements[0];
+            let statement = program.statements.first().unwrap();
             if let Some(statement_operator) = statement.token() {
                 assert_eq!(expected_operator, statement_operator.to_string());
             }
@@ -535,7 +566,7 @@ return 993322;"#;
             }
 
             assert_eq!(expected_string, program.to_string());
-            assert!(program.statements.len() != 0);
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
         }
     }
@@ -565,7 +596,37 @@ return 993322;"#;
             }
 
             assert_eq!(expected_string, program.to_string());
-            assert!(program.statements.len() != 0);
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_call_expressions() {
+        let tests = vec![
+            ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5))"),
+            ("a + add(b * c) + d;", "((a + add((b * c))) + d)"),
+            (
+                "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));",
+                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+            ),
+            (
+                "add(a + b + c * d / f + g); ",
+                "add((((a + b) + ((c * d) / f)) + g))",
+            ),
+        ];
+
+        for (input, expected_string) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            if !program.errors.is_empty() {
+                eprintln!("{:?}", program.errors);
+            }
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
         }
     }
