@@ -464,7 +464,7 @@ return 993322;"#;
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
 
-            let statement = &program.statements[0];
+            let statement = program.statements.first().unwrap();
             if let Some(statement_operator) = statement.token() {
                 assert_eq!(expected_operator, statement_operator.to_string());
             }
@@ -490,7 +490,7 @@ return 993322;"#;
             let program = parser.parse_program();
 
             assert!(program.errors.len() == 1);
-            assert_eq!(expected_string, &program.errors[0].to_string());
+            assert_eq!(expected_string, program.errors.first().unwrap().to_string());
         }
     }
 
@@ -518,7 +518,7 @@ return 993322;"#;
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
 
-            let statement = &program.statements[0];
+            let statement = program.statements.first().unwrap();
             if let Some(statement_operator) = statement.token() {
                 assert_eq!(expected_operator, statement_operator.to_string());
             }
@@ -566,7 +566,7 @@ return 993322;"#;
             }
 
             assert_eq!(expected_string, program.to_string());
-            assert!(program.statements.len() != 0);
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
         }
     }
@@ -596,7 +596,7 @@ return 993322;"#;
             }
 
             assert_eq!(expected_string, program.to_string());
-            assert!(program.statements.len() != 0);
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
         }
     }
@@ -626,7 +626,7 @@ return 993322;"#;
             }
 
             assert_eq!(expected_string, program.to_string());
-            assert!(program.statements.len() != 0);
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
         }
     }
