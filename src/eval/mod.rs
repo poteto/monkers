@@ -1,4 +1,6 @@
-use crate::ast::{BooleanExpression, Expression, Node, PrefixExpression, Statement};
+use crate::ast::{
+    BooleanExpression, Expression, InfixExpression, Node, PrefixExpression, Statement,
+};
 use crate::ir::{IRInteger, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
@@ -40,6 +42,12 @@ fn eval_expression(expression: &Expression) -> Result<IR, Todo> {
             let right = eval(&Node::Expression(*expression.right.clone()))?;
             Ok(eval_prefix_expression(&expression, right))
         }
+        Expression::Infix(expression) => {
+            // TODO: Same problem as above.
+            let left = eval(&Node::Expression(*expression.left.clone()))?;
+            let right = eval(&Node::Expression(*expression.right.clone()))?;
+            Ok(eval_infix_expression(expression, (left, right)))
+        }
         _ => Ok(IR::NotImplementedYet),
     }
 }
@@ -57,6 +65,27 @@ fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
                 value: -integer.value,
             }),
             _ => IR::Null(NULL),
+        },
+        _ => IR::Null(NULL),
+    }
+}
+
+fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> IR {
+    match arms {
+        (IR::Integer(left), IR::Integer(right)) => match expression.token {
+            Token::Plus => IR::Integer(IRInteger {
+                value: left.value + right.value,
+            }),
+            Token::Minus => IR::Integer(IRInteger {
+                value: left.value - right.value,
+            }),
+            Token::Asterisk => IR::Integer(IRInteger {
+                value: left.value * right.value,
+            }),
+            Token::Slash => IR::Integer(IRInteger {
+                value: left.value / right.value,
+            }),
+            _ => IR::NotImplementedYet,
         },
         _ => IR::Null(NULL),
     }
@@ -91,7 +120,7 @@ mod tests {
             ("5 + 2 * 10;", 25),
             ("20 + 2 * -10;", 0),
             ("50 / 2 * 2 + 10;", 60),
-            ("2 * (5 + 10;)", 30),
+            ("2 * (5 + 10);", 30),
             ("3 * 3 * 3 + 10;", 37),
             ("3 * (3 * 3) + 10;", 37),
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10;", 50),

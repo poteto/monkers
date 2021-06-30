@@ -1,12 +1,7 @@
-use super::{IRTypedObject, IRObjectKind};
 use std::fmt;
 
 pub struct IRInteger {
     pub value: isize,
-}
-
-impl IRTypedObject for IRInteger {
-    const TYPE: IRObjectKind = IRObjectKind::Integer;
 }
 
 impl fmt::Display for IRInteger {
