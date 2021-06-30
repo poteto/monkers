@@ -4,7 +4,7 @@ mod null;
 
 pub use boolean::{IRBoolean, TRUE, FALSE};
 pub use integer::IRInteger;
-pub use null::IRNull;
+pub use null::{IRNull, NULL};
 
 use std::fmt;
 
