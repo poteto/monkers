@@ -2,7 +2,7 @@ use super::{IRTypedObject, IRObjectKind};
 use std::fmt;
 
 pub struct IRBoolean {
-    value: bool,
+    pub value: bool,
 }
 
 impl IRTypedObject for IRBoolean {
@@ -14,3 +14,6 @@ impl fmt::Display for IRBoolean {
         self.value.fmt(f)
     }
 }
+
+pub const TRUE: IRBoolean = IRBoolean { value: true };
+pub const FALSE: IRBoolean = IRBoolean { value: false };
