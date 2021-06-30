@@ -2,7 +2,7 @@ use super::{IRTypedObject, IRObjectKind};
 use std::fmt;
 
 pub struct IRInteger {
-    pub value: usize,
+    pub value: isize,
 }
 
 impl IRTypedObject for IRInteger {

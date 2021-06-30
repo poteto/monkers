@@ -22,7 +22,7 @@ fn main() {
                     eprintln!("{}", error);
                 }
 
-                match eval(Node::Program(program)) {
+                match eval(&Node::Program(program)) {
                     Ok(ir) => println!("{}", ir),
                     Err(_) => eprintln!("Something went wrong!"),
                 };
