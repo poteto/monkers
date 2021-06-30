@@ -1,6 +1,4 @@
-use crate::ast::{
-    BooleanExpression, Expression, InfixExpression, Node, PrefixExpression, Statement,
-};
+use crate::ast::{Expression, InfixExpression, Node, PrefixExpression, Statement};
 use crate::ir::{IRInteger, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
@@ -34,7 +32,7 @@ fn eval_expression(expression: &Expression) -> Result<IR, Todo> {
         Expression::Integer(value) => Ok(IR::Integer(IRInteger {
             value: value.clone(),
         })),
-        Expression::Boolean(expression) => Ok(get_interned_bool(expression)),
+        Expression::Boolean(expression) => Ok(get_interned_bool(expression.value)),
         Expression::Prefix(expression) => {
             // TODO: Ideally we could just borrow `right`, but because `eval`
             // expects an &AST::Node, we need to wrap `right` here with a
@@ -85,14 +83,20 @@ fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> IR {
             Token::Slash => IR::Integer(IRInteger {
                 value: left.value / right.value,
             }),
+            Token::LessThan => get_interned_bool(left.value < right.value),
+            Token::GreaterThan => get_interned_bool(left.value > right.value),
+            Token::Equal => get_interned_bool(left.value == right.value),
+            Token::NotEqual => get_interned_bool(left.value != right.value),
             _ => IR::NotImplementedYet,
         },
+        (left, right) if expression.token == Token::Equal => get_interned_bool(left == right),
+        (left, right) if expression.token == Token::NotEqual => get_interned_bool(left != right),
         _ => IR::Null(NULL),
     }
 }
 
-fn get_interned_bool(expression: &BooleanExpression) -> IR {
-    match expression.value {
+fn get_interned_bool(native_value: bool) -> IR {
+    match native_value {
         true => IR::Boolean(TRUE),
         false => IR::Boolean(FALSE),
     }
@@ -146,7 +150,27 @@ mod tests {
 
     #[test]
     fn it_evaluates_boolean_literals() {
-        let tests = vec![("true;", true), ("false;", false)];
+        let tests = vec![
+            ("true;", true),
+            ("false;", false),
+            ("1 < 2;", true),
+            ("1 > 2;", false),
+            ("1 < 1;", false),
+            ("1 > 1;", false),
+            ("1 == 1;", true),
+            ("1 != 1;", false),
+            ("1 == 2;", false),
+            ("1 != 2;", true),
+            ("true == true;", true),
+            ("false == false;", true),
+            ("true == false;", false),
+            ("true != false;", true),
+            ("false != true;", true),
+            ("(1 < 2) == true;", true),
+            ("(1 < 2) == false;", false),
+            ("(1 > 2) == true;", false),
+            ("(1 > 2) == false;", true),
+        ];
 
         for (input, expected) in tests {
             let lexer = Lexer::new(input);
