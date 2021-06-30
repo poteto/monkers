@@ -8,14 +8,12 @@ pub use null::{IRNull, NULL};
 
 use std::fmt;
 
-trait IRTypedObject {
-    const TYPE: IRObjectKind;
-}
-
-enum IRObjectKind {
+#[derive(PartialEq)]
+pub enum IRObjectKind {
     Integer,
     Boolean,
     Null,
+    NotImplementedYet,
 }
 
 pub enum IR {

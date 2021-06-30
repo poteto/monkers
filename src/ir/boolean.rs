@@ -1,13 +1,8 @@
-use super::{IRTypedObject, IRObjectKind};
 use std::fmt;
 
 #[derive(PartialEq, Eq)]
 pub struct IRBoolean {
     pub value: bool,
-}
-
-impl IRTypedObject for IRBoolean {
-    const TYPE: IRObjectKind = IRObjectKind::Boolean;
 }
 
 impl fmt::Display for IRBoolean {

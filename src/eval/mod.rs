@@ -1,4 +1,6 @@
-use crate::ast::{BooleanExpression, Expression, Node, PrefixExpression, Statement};
+use crate::ast::{
+    BooleanExpression, Expression, InfixExpression, Node, PrefixExpression, Statement,
+};
 use crate::ir::{IRInteger, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
@@ -8,18 +10,7 @@ pub fn eval(node: &Node) -> Result<IR, Todo> {
     match node {
         Node::Program(program) => eval_statements(&program.statements),
         Node::Statement(_) => Ok(IR::NotImplementedYet),
-        Node::Expression(Expression::Integer(value)) => Ok(IR::Integer(IRInteger {
-            value: value.clone(),
-        })),
-        Node::Expression(Expression::Boolean(expression)) => Ok(get_interned_bool(expression)),
-        Node::Expression(Expression::Prefix(expression)) => {
-            // TODO: Ideally we could just borrow `right`, but because `eval`
-            // expects an &AST::Node, we need to wrap `right` here with a
-            // Node::Expression(expr), which takes ownership of expr.
-            let right = eval(&Node::Expression(*expression.right.clone()))?;
-            Ok(eval_prefix_expression(&expression, right))
-        }
-        Node::Expression(_) => Ok(IR::NotImplementedYet),
+        Node::Expression(expression) => eval_expression(expression),
     }
 }
 
@@ -38,6 +29,29 @@ fn eval_statements(statements: &Vec<Statement>) -> Result<IR, Todo> {
     result
 }
 
+fn eval_expression(expression: &Expression) -> Result<IR, Todo> {
+    match expression {
+        Expression::Integer(value) => Ok(IR::Integer(IRInteger {
+            value: value.clone(),
+        })),
+        Expression::Boolean(expression) => Ok(get_interned_bool(expression)),
+        Expression::Prefix(expression) => {
+            // TODO: Ideally we could just borrow `right`, but because `eval`
+            // expects an &AST::Node, we need to wrap `right` here with a
+            // Node::Expression(expr), which takes ownership of expr.
+            let right = eval(&Node::Expression(*expression.right.clone()))?;
+            Ok(eval_prefix_expression(&expression, right))
+        }
+        Expression::Infix(expression) => {
+            // TODO: Same problem as above.
+            let left = eval(&Node::Expression(*expression.left.clone()))?;
+            let right = eval(&Node::Expression(*expression.right.clone()))?;
+            Ok(eval_infix_expression(expression, (left, right)))
+        }
+        _ => Ok(IR::NotImplementedYet),
+    }
+}
+
 fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
     match expression.token {
         Token::Bang => match right {
@@ -51,6 +65,27 @@ fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
                 value: -integer.value,
             }),
             _ => IR::Null(NULL),
+        },
+        _ => IR::Null(NULL),
+    }
+}
+
+fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> IR {
+    match arms {
+        (IR::Integer(left), IR::Integer(right)) => match expression.token {
+            Token::Plus => IR::Integer(IRInteger {
+                value: left.value + right.value,
+            }),
+            Token::Minus => IR::Integer(IRInteger {
+                value: left.value - right.value,
+            }),
+            Token::Asterisk => IR::Integer(IRInteger {
+                value: left.value * right.value,
+            }),
+            Token::Slash => IR::Integer(IRInteger {
+                value: left.value / right.value,
+            }),
+            _ => IR::NotImplementedYet,
         },
         _ => IR::Null(NULL),
     }
@@ -73,7 +108,23 @@ mod tests {
 
     #[test]
     fn it_evaluates_integer_literals() {
-        let tests = vec![("5;", 5), ("10;", 10), ("-5;", -5), ("-10;", -10)];
+        let tests = vec![
+            ("5;", 5),
+            ("10;", 10),
+            ("-5;", -5),
+            ("-10;", -10),
+            ("5 + 5 + 5 + 5 - 10;", 10),
+            ("2 * 2 * 2 * 2 * 2;", 32),
+            ("-50 + 100 + -50;", 0),
+            ("5 * 2 + 10;", 20),
+            ("5 + 2 * 10;", 25),
+            ("20 + 2 * -10;", 0),
+            ("50 / 2 * 2 + 10;", 60),
+            ("2 * (5 + 10);", 30),
+            ("3 * 3 * 3 + 10;", 37),
+            ("3 * (3 * 3) + 10;", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10;", 50),
+        ];
 
         for (input, expected) in tests {
             let lexer = Lexer::new(input);
