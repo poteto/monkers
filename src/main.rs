@@ -1,3 +1,5 @@
+use monkers::ast::Node;
+use monkers::eval::eval;
 use monkers::{lexer::Lexer, parser::Parser};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
@@ -16,11 +18,14 @@ fn main() {
                 let mut parser = Parser::new(lexer);
                 let program = parser.parse_program();
 
-                if !program.errors.is_empty() {
-                    eprintln!("{:#?}", program.errors);
-                } else {
-                    println!("{:#?}", program.statements);
+                for error in &program.errors {
+                    eprintln!("{}", error);
                 }
+
+                match eval(Node::Program(program)) {
+                    Ok(ir) => println!("{}", ir),
+                    Err(_) => eprintln!("Something went wrong!"),
+                };
             }
             Err(ReadlineError::Interrupted) => {
                 println!("CTRL-C");
