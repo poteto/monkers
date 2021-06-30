@@ -12,3 +12,6 @@ impl fmt::Display for IRNull {
         write!(f, "null")
     }
 }
+
+#[allow(dead_code)]
+pub const NULL: IRNull = IRNull();

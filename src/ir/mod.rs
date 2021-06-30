@@ -2,7 +2,7 @@ mod boolean;
 mod integer;
 mod null;
 
-pub use boolean::IRBoolean;
+pub use boolean::{IRBoolean, TRUE, FALSE};
 pub use integer::IRInteger;
 pub use null::IRNull;
 
