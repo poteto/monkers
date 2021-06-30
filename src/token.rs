@@ -1,6 +1,6 @@
 use std::fmt;
 
-pub type IntegerSize = i64;
+pub type IntegerSize = usize;
 pub type IdentifierType = String;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
