@@ -363,13 +363,16 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
+
         assert_eq!(
             program.statements.len(),
             expected_len,
             "Expected {} statements",
             expected_len
         );
-
         assert!(program.errors.is_empty());
         assert_eq!(program.to_string(), expected);
     }
@@ -388,6 +391,10 @@ let 838383;"#;
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
+
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
 
         for (i, expect) in expected.iter().enumerate() {
             assert_eq!(expect, &program.errors[i].to_string());
@@ -410,8 +417,8 @@ let 838383;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
-            if !program.errors.is_empty() {
-                eprintln!("{:?}", program.errors);
+            for error in &program.errors {
+                eprintln!("{}", error);
             }
 
             assert_eq!(expected_string, program.to_string());
@@ -429,6 +436,10 @@ let 838383;"#;
         let lexer = Lexer::new(input);
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
+
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
 
         assert_eq!(
             program.statements.len(),
@@ -453,6 +464,10 @@ let 838383;"#;
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
 
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
@@ -482,6 +497,10 @@ let 838383;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
+
             assert!(program.errors.len() == 1);
             assert_eq!(expected_string, program.errors.first().unwrap().to_string());
         }
@@ -507,6 +526,10 @@ let 838383;"#;
             let lexer = Lexer::new(input);
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
 
             assert_eq!(program.statements.len(), 1);
             assert!(program.errors.is_empty());
@@ -554,8 +577,8 @@ let 838383;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
-            if !program.errors.is_empty() {
-                eprintln!("{:?}", program.errors);
+            for error in &program.errors {
+                eprintln!("{}", error);
             }
 
             assert_eq!(expected_string, program.to_string());
@@ -584,8 +607,8 @@ let 838383;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
-            if !program.errors.is_empty() {
-                eprintln!("{:?}", program.errors);
+            for error in &program.errors {
+                eprintln!("{}", error);
             }
 
             assert_eq!(expected_string, program.to_string());
@@ -614,8 +637,8 @@ let 838383;"#;
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
-            if !program.errors.is_empty() {
-                eprintln!("{:?}", program.errors);
+            for error in &program.errors {
+                eprintln!("{}", error);
             }
 
             assert_eq!(expected_string, program.to_string());
