@@ -24,10 +24,10 @@ impl fmt::Display for EvalError {
 }
 
 pub fn eval(program: &Program) -> Result<IR, EvalError> {
-    eval_statements(&program.statements)
+    eval_program(&program.statements)
 }
 
-fn eval_statements(statements: &Vec<Statement>) -> Result<IR, EvalError> {
+fn eval_program(statements: &Vec<Statement>) -> Result<IR, EvalError> {
     let mut result = Err(EvalError::InvalidStatement);
     for statement in statements {
         result = eval_statement(statement);
@@ -51,7 +51,7 @@ fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
             }
         }
         Statement::Expression(expression) => eval_expression(expression),
-        Statement::Block(statement) => eval_statements(&statement.statements),
+        Statement::Block(statement) => eval_program(&statement.statements),
     }
 }
 
@@ -348,6 +348,15 @@ mod tests {
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
             ("9; return 2 * 5; 9;", 10),
+            (
+                r#"if (10 > 1) {
+    if (10 > 1) {
+        return 10;
+    }
+    return 1;
+}"#,
+                10,
+            ),
         ];
 
         for (input, expected) in tests {
