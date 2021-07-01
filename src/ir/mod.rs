@@ -12,14 +12,12 @@ pub enum IRObjectKind {
     Integer,
     Boolean,
     Null,
-    NotImplementedYet,
 }
 
 pub enum IR {
     Integer(IRInteger),
     Boolean(IRBoolean),
     Null(IRNull),
-    NotImplementedYet,
 }
 
 impl fmt::Display for IR {
@@ -28,7 +26,6 @@ impl fmt::Display for IR {
             IR::Integer(ir) => ir.fmt(f),
             IR::Boolean(ir) => ir.fmt(f),
             IR::Null(ir) => ir.fmt(f),
-            IR::NotImplementedYet => write!(f, "Not Implemented Yet"),
         }
     }
 }
@@ -39,7 +36,6 @@ impl PartialEq for IR {
             (IR::Integer(a), IR::Integer(b)) => a.value == b.value,
             (IR::Boolean(a), IR::Boolean(b)) => a.value == b.value,
             (IR::Null(_), IR::Null(_)) => true,
-            (IR::NotImplementedYet, IR::NotImplementedYet) => false,
             _ => false,
         }
     }
