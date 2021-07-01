@@ -1,4 +1,4 @@
-use crate::ast::{Expression, InfixExpression, Node, PrefixExpression, Statement};
+use crate::ast::{Expression, IfExpression, InfixExpression, Node, PrefixExpression, Statement};
 use crate::ir::{IRInteger, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
@@ -7,7 +7,7 @@ type Todo = ();
 pub fn eval(node: &Node) -> Result<IR, Todo> {
     match node {
         Node::Program(program) => eval_statements(&program.statements),
-        Node::Statement(_) => Ok(IR::NotImplementedYet),
+        Node::Statement(statement) => eval_statement(statement),
         Node::Expression(expression) => eval_expression(expression),
     }
 }
@@ -15,16 +15,18 @@ pub fn eval(node: &Node) -> Result<IR, Todo> {
 fn eval_statements(statements: &Vec<Statement>) -> Result<IR, Todo> {
     let mut result = Err(());
     for statement in statements {
-        match statement {
-            Statement::Let(_) => (),
-            Statement::Return(_) => (),
-            Statement::Expression(expression) => {
-                result = eval(&Node::Expression(expression.clone()));
-            }
-            Statement::Block(_) => (),
-        };
+        result = eval_statement(statement);
     }
     result
+}
+
+fn eval_statement(statement: &Statement) -> Result<IR, Todo> {
+    match statement {
+        Statement::Let(_) => Err(()),
+        Statement::Return(_) => Err(()),
+        Statement::Expression(expression) => eval(&Node::Expression(expression.clone())),
+        Statement::Block(statement) => eval_statements(&statement.statements),
+    }
 }
 
 fn eval_expression(expression: &Expression) -> Result<IR, Todo> {
@@ -46,6 +48,7 @@ fn eval_expression(expression: &Expression) -> Result<IR, Todo> {
             let right = eval(&Node::Expression(*expression.right.clone()))?;
             Ok(eval_infix_expression(expression, (left, right)))
         }
+        Expression::If(expression) => eval_if_expression(expression),
         _ => Ok(IR::NotImplementedYet),
     }
 }
@@ -95,10 +98,40 @@ fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> IR {
     }
 }
 
+fn eval_if_expression(expression: &IfExpression) -> Result<IR, Todo> {
+    if let Some(condition) = &expression.condition {
+        let condition = eval(&Node::Expression(*condition.clone()))?;
+        if is_truthy(condition) {
+            if let Some(consequence) = &expression.consequence {
+                // TODO: As above, fix this clone.
+                eval(&Node::Statement(Statement::Block(consequence.clone())))
+            } else {
+                Err(())
+            }
+        } else if let Some(alternative) = &expression.alternative {
+            // TODO: As above, fix this clone.
+            eval(&Node::Statement(Statement::Block(alternative.clone())))
+        } else {
+            Ok(IR::Null(NULL))
+        }
+    } else {
+        Err(())
+    }
+}
+
 fn get_interned_bool(native_value: bool) -> IR {
     match native_value {
         true => IR::Boolean(TRUE),
         false => IR::Boolean(FALSE),
+    }
+}
+
+fn is_truthy(ir: IR) -> bool {
+    match ir {
+        IR::Null(_) => false,
+        IR::Boolean(FALSE) => false,
+        IR::Boolean(TRUE) => true,
+        _ => true,
     }
 }
 
@@ -185,7 +218,7 @@ mod tests {
             if let Ok(IR::Boolean(IRBoolean { value })) = ir {
                 assert_eq!(expected, value);
             } else {
-                panic!("Expected to evalute integers, got {}", ir.unwrap())
+                panic!("Expected to evalute booleans, got {}", ir.unwrap())
             }
         }
     }
@@ -214,7 +247,43 @@ mod tests {
             if let Ok(IR::Boolean(IRBoolean { value })) = ir {
                 assert_eq!(expected, value);
             } else {
-                panic!("Expected to evalute integers, got {}", ir.unwrap())
+                panic!("Expected to evalute booleans, got {}", ir.unwrap())
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_if_else_expressions() {
+        let tests = vec![
+            ("if (true) { 10 };", Some(10)),
+            ("if (false) { 10 };", None),
+            ("if (1) { 10 };", Some(10)),
+            ("if (1 < 2) { 10 };", Some(10)),
+            ("if (1 > 2) { 10 };", None),
+            ("if (1 > 2) { 10 } else { 20 };", Some(20)),
+            ("if (1 < 2) { 10 } else { 20 };", Some(10)),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
+
+            let ir = eval(&Node::Program(program));
+            match ir {
+                Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected.unwrap(), value);
+                }
+                Ok(IR::Null(_)) => {
+                    assert!(expected.is_none());
+                }
+                _ => {
+                    panic!("Expected to evalute if expressions, got {}", ir.unwrap())
+                }
             }
         }
     }
