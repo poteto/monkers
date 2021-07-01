@@ -1,10 +1,12 @@
 mod boolean;
 mod integer;
 mod null;
+mod return_value;
 
 pub use boolean::{IRBoolean, FALSE, TRUE};
 pub use integer::IRInteger;
 pub use null::{IRNull, NULL};
+pub use return_value::IRReturnValue;
 
 use std::fmt;
 
@@ -18,6 +20,7 @@ pub enum IR {
     Integer(IRInteger),
     Boolean(IRBoolean),
     Null(IRNull),
+    ReturnValue(IRReturnValue),
 }
 
 impl fmt::Display for IR {
@@ -26,6 +29,7 @@ impl fmt::Display for IR {
             IR::Integer(ir) => ir.fmt(f),
             IR::Boolean(ir) => ir.fmt(f),
             IR::Null(ir) => ir.fmt(f),
+            IR::ReturnValue(ir) => ir.fmt(f),
         }
     }
 }

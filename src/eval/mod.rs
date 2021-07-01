@@ -1,12 +1,12 @@
 use crate::ast::{Expression, IfExpression, InfixExpression, Node, PrefixExpression, Statement};
-use crate::ir::{IRInteger, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
 use std::fmt;
 
 #[derive(Debug)]
 pub enum EvalError {
-    NotImplementedYet,
+    NotImplementedYet(String),
     InvalidStatement,
     InvalidExpression,
 }
@@ -14,7 +14,7 @@ pub enum EvalError {
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EvalError::NotImplementedYet => write!(f, "Not Implemented Yet"),
+            EvalError::NotImplementedYet(s) => write!(f, "Not Implemented Yet: {}", s),
             EvalError::InvalidStatement => write!(f, "Statement is invalid"),
             EvalError::InvalidExpression => write!(f, "Expression is invalid"),
         }
@@ -33,14 +33,25 @@ fn eval_statements(statements: &Vec<Statement>) -> Result<IR, EvalError> {
     let mut result = Err(EvalError::InvalidStatement);
     for statement in statements {
         result = eval_statement(statement);
+        if let Ok(IR::ReturnValue(return_value)) = result {
+            return Ok(*return_value.value);
+        }
     }
     result
 }
 
 fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
     match statement {
-        Statement::Let(_) => Err(EvalError::NotImplementedYet),
-        Statement::Return(_) => Err(EvalError::NotImplementedYet),
+        Statement::Let(_) => Err(EvalError::NotImplementedYet("let".to_string())),
+        Statement::Return(statement) => {
+            if let Ok(value) = eval(&Node::Expression(statement.return_value.clone())) {
+                Ok(IR::ReturnValue(IRReturnValue {
+                    value: Box::new(value),
+                }))
+            } else {
+                Err(EvalError::InvalidStatement)
+            }
+        }
         Statement::Expression(expression) => eval(&Node::Expression(expression.clone())),
         Statement::Block(statement) => eval_statements(&statement.statements),
     }
@@ -66,7 +77,7 @@ fn eval_expression(expression: &Expression) -> Result<IR, EvalError> {
             eval_infix_expression(expression, (left, right))
         }
         Expression::If(expression) => eval_if_expression(expression),
-        _ => Err(EvalError::NotImplementedYet),
+        expression => Err(EvalError::NotImplementedYet(expression.to_string())),
     }
 }
 
@@ -90,7 +101,7 @@ fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
 
 fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result<IR, EvalError> {
     match arms {
-        (IR::Integer(left), IR::Integer(right)) => match expression.token {
+        (IR::Integer(left), IR::Integer(right)) => match &expression.token {
             Token::Plus => Ok(IR::Integer(IRInteger {
                 value: left.value + right.value,
             })),
@@ -107,7 +118,7 @@ fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result
             Token::GreaterThan => Ok(get_interned_bool(left.value > right.value)),
             Token::Equal => Ok(get_interned_bool(left.value == right.value)),
             Token::NotEqual => Ok(get_interned_bool(left.value != right.value)),
-            _ => Err(EvalError::NotImplementedYet),
+            token => Err(EvalError::NotImplementedYet(token.to_string())),
         },
         (left, right) if expression.token == Token::Equal => Ok(get_interned_bool(left == right)),
         (left, right) if expression.token == Token::NotEqual => {
@@ -317,6 +328,39 @@ mod tests {
                 }
                 Ok(IR::Null(_)) => {
                     assert!(expected.is_none());
+                }
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_return_statements() {
+        let tests = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
+
+            let ir = eval(&Node::Program(program));
+            match ir {
+                Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected, value);
                 }
                 Ok(ir_object) => {
                     panic!("Didn't expect {}", ir_object);
