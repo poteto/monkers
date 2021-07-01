@@ -1,4 +1,3 @@
-use monkers::ast::Node;
 use monkers::eval::eval;
 use monkers::{lexer::Lexer, parser::Parser};
 use rustyline::error::ReadlineError;
@@ -22,7 +21,7 @@ fn main() {
                     eprintln!("{}", error);
                 }
 
-                match eval(&Node::Program(program)) {
+                match eval(&program) {
                     Ok(ir) => println!("{}", ir),
                     Err(_) => eprintln!("Something went wrong!"),
                 };
