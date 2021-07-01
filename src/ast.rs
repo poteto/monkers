@@ -4,22 +4,6 @@ use crate::{
 };
 use std::fmt;
 
-pub enum Node {
-    Program(Program),
-    Statement(Statement),
-    Expression(Expression),
-}
-
-impl fmt::Display for Node {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Node::Program(program) => program.fmt(f),
-            Node::Statement(statement) => statement.fmt(f),
-            Node::Expression(expression) => expression.fmt(f),
-        }
-    }
-}
-
 // Program
 #[derive(Debug, PartialEq)]
 pub struct Program {
