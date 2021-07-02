@@ -1,7 +1,9 @@
+use num::BigInt;
+
 use crate::ast::{
     BlockStatement, Expression, IfExpression, InfixExpression, PrefixExpression, Program, Statement,
 };
-use crate::ir::{IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRBigInteger, IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
 use std::fmt;
@@ -11,6 +13,7 @@ pub enum EvalError {
     NotImplementedYet(String),
     InvalidStatement,
     InvalidExpression,
+    TypeError,
 }
 
 impl fmt::Display for EvalError {
@@ -19,6 +22,7 @@ impl fmt::Display for EvalError {
             EvalError::NotImplementedYet(s) => write!(f, "Not Implemented Yet: {}", s),
             EvalError::InvalidStatement => write!(f, "Statement is invalid"),
             EvalError::InvalidExpression => write!(f, "Expression is invalid"),
+            &EvalError::TypeError => write!(f, "Type Error"),
         }
     }
 }
@@ -68,7 +72,8 @@ fn eval_block_statement(block_statement: &BlockStatement) -> Result<IR, EvalErro
 
 fn eval_expression(expression: &Expression) -> Result<IR, EvalError> {
     match expression {
-        Expression::Integer(value) => Ok(IR::Integer(IRInteger {
+        Expression::Integer(value) => Ok(IR::Integer(IRInteger { value: *value })),
+        Expression::BigInteger(value) => Ok(IR::BigInteger(IRBigInteger {
             value: value.clone(),
         })),
         Expression::Boolean(expression) => Ok(get_interned_bool(expression.value)),
@@ -98,6 +103,9 @@ fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
             IR::Integer(integer) => IR::Integer(IRInteger {
                 value: -integer.value,
             }),
+            IR::BigInteger(big_integer) => IR::BigInteger(IRBigInteger {
+                value: -big_integer.value,
+            }),
             _ => IR::Null(NULL),
         },
         _ => IR::Null(NULL),
@@ -107,16 +115,47 @@ fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
 fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result<IR, EvalError> {
     match arms {
         (IR::Integer(left), IR::Integer(right)) => match &expression.token {
-            Token::Plus => Ok(IR::Integer(IRInteger {
+            Token::Plus => match left.value.overflowing_add(right.value) {
+                (value, false) => Ok(IR::Integer(IRInteger { value })),
+                (_, true) => Ok(IR::BigInteger(IRBigInteger {
+                    value: BigInt::from(left.value) + BigInt::from(right.value),
+                })),
+            },
+            Token::Minus => match left.value.overflowing_sub(right.value) {
+                (value, false) => Ok(IR::Integer(IRInteger { value })),
+                (_, true) => Ok(IR::BigInteger(IRBigInteger {
+                    value: BigInt::from(left.value) - BigInt::from(right.value),
+                })),
+            },
+            Token::Asterisk => match left.value.overflowing_mul(right.value) {
+                (value, false) => Ok(IR::Integer(IRInteger { value })),
+                (_, true) => Ok(IR::BigInteger(IRBigInteger {
+                    value: BigInt::from(left.value) * BigInt::from(right.value),
+                })),
+            },
+            Token::Slash => match left.value.overflowing_div(right.value) {
+                (value, false) => Ok(IR::Integer(IRInteger { value })),
+                (_, true) => Ok(IR::BigInteger(IRBigInteger {
+                    value: BigInt::from(left.value) / BigInt::from(right.value),
+                })),
+            },
+            Token::LessThan => Ok(get_interned_bool(left.value < right.value)),
+            Token::GreaterThan => Ok(get_interned_bool(left.value > right.value)),
+            Token::Equal => Ok(get_interned_bool(left.value == right.value)),
+            Token::NotEqual => Ok(get_interned_bool(left.value != right.value)),
+            token => Err(EvalError::NotImplementedYet(token.to_string())),
+        },
+        (IR::BigInteger(left), IR::BigInteger(right)) => match &expression.token {
+            Token::Plus => Ok(IR::BigInteger(IRBigInteger {
                 value: left.value + right.value,
             })),
-            Token::Minus => Ok(IR::Integer(IRInteger {
+            Token::Minus => Ok(IR::BigInteger(IRBigInteger {
                 value: left.value - right.value,
             })),
-            Token::Asterisk => Ok(IR::Integer(IRInteger {
+            Token::Asterisk => Ok(IR::BigInteger(IRBigInteger {
                 value: left.value * right.value,
             })),
-            Token::Slash => Ok(IR::Integer(IRInteger {
+            Token::Slash => Ok(IR::BigInteger(IRBigInteger {
                 value: left.value / right.value,
             })),
             Token::LessThan => Ok(get_interned_bool(left.value < right.value)),
@@ -129,7 +168,7 @@ fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result
         (left, right) if expression.token == Token::NotEqual => {
             Ok(get_interned_bool(left != right))
         }
-        _ => Ok(IR::Null(NULL)),
+        _ => Err(EvalError::TypeError)
     }
 }
 
@@ -170,8 +209,10 @@ fn is_truthy(ir: IR) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use num::BigInt;
+
     use crate::eval::eval;
-    use crate::ir::{IRBoolean, IRInteger, IR};
+    use crate::ir::{IRBigInteger, IRBoolean, IRInteger, IR};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -207,6 +248,61 @@ mod tests {
             let ir = eval(&program);
             match ir {
                 Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected, value);
+                }
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_big_integer_literals() {
+        let tests = vec![
+            (
+                "99999999999999999999999999999999999999999999999999999999;",
+                "99999999999999999999999999999999999999999999999999999999"
+                    .parse::<BigInt>()
+                    .unwrap(),
+            ),
+            (
+                "9999999999999999999999999999 + 9999999999999999999999999999;",
+                "19999999999999999999999999998".parse::<BigInt>().unwrap(),
+            ),
+            (
+                "9999999999999999999999999999 - 9999999999999999999999999999;",
+                "0".parse::<BigInt>().unwrap(),
+            ),
+            (
+                "9999999999999999999999999999 * 9999999999999999999999999999;",
+                "99999999999999999999999999980000000000000000000000000001"
+                    .parse::<BigInt>()
+                    .unwrap(),
+            ),
+            (
+                "9999999999999999999999999999999999999999999999999999999 / 9999999999999999999999999999999999999999999999999999999;",
+                "1"
+                    .parse::<BigInt>()
+                    .unwrap(),
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
+
+            let ir = eval(&program);
+            match ir {
+                Ok(IR::BigInteger(IRBigInteger { value })) => {
                     assert_eq!(expected, value);
                 }
                 Ok(ir_object) => {

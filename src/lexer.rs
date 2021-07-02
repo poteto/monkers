@@ -1,5 +1,6 @@
+use num::BigInt;
+
 use crate::token::{lookup_identifier, IntegerSize, Token};
-use std::result;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -25,7 +26,7 @@ impl<'a> Lexer<'a> {
         lexer
     }
 
-    fn peek_char(&self) -> result::Result<char, &str> {
+    fn peek_char(&self) -> Result<char, &str> {
         if self.read_position >= self.input.len() {
             Ok('0')
         } else if let Some(ch) = self.input.chars().nth(self.read_position) {
@@ -131,7 +132,13 @@ impl<'a> Lexer<'a> {
                 let literal = self.read_number();
                 match literal.parse::<IntegerSize>() {
                     Ok(i) => return Token::Integer(i),
-                    Err(_) => panic!("Could not parse lexed integer literal"),
+                    Err(error) => {
+                        if let Ok(bi) = literal.parse::<BigInt>() {
+                            return Token::BigInteger(bi);
+                        } else {
+                            panic!("{}", error);
+                        }
+                    }
                 }
             }
             _ => token = Token::Illegal(self.ch),
@@ -157,6 +164,7 @@ impl<'a> Iterator for Lexer<'a> {
 mod tests {
     use crate::lexer::Lexer;
     use crate::token::Token;
+    use num::BigInt;
 
     #[test]
     fn it_lexes_operators_and_delimiters() {
@@ -283,6 +291,26 @@ if (5 < 10) {
             Token::EndOfFile,
         ];
         let mut lexer = Lexer::new(input);
+
+        for expect in expected {
+            let token = lexer.next_token();
+            assert_eq!(expect, token, "Expected `{}`", expect);
+        }
+
+        assert!(
+            lexer.is_end_of_file(),
+            "Postcondition: Lexer should have fully lexed the entire input"
+        );
+    }
+
+    #[test]
+    fn it_lexes_big_ints() {
+        let literal = "99999999999999999999999999999999999999999999999999";
+        let input = format!("{};", literal);
+        let mut lexer = Lexer::new(input.as_str());
+        let bi = literal.parse::<BigInt>().unwrap();
+
+        let expected = vec![Token::BigInteger(bi), Token::Semicolon, Token::EndOfFile];
 
         for expect in expected {
             let token = lexer.next_token();

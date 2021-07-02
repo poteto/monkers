@@ -1,5 +1,7 @@
 mod error;
 
+use num::BigInt;
+
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
@@ -10,6 +12,7 @@ use crate::{
     lexer::Lexer,
     token::Token,
 };
+
 use std::mem;
 
 #[derive(PartialEq, PartialOrd)]
@@ -99,7 +102,7 @@ impl<'a> Parser<'a> {
             let statement = LetStatement {
                 token: Token::Let,
                 name: Identifier(ident),
-                value: self.parse_expression(Precedence::Lowest)?
+                value: self.parse_expression(Precedence::Lowest)?,
             };
             if self.peek_token == Token::Semicolon {
                 self.next_token();
@@ -118,7 +121,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let statement = ReturnStatement {
             token: Token::Return,
-            return_value: self.parse_expression(Precedence::Lowest)?
+            return_value: self.parse_expression(Precedence::Lowest)?,
         };
         if self.peek_token == Token::Semicolon {
             self.next_token();
@@ -147,7 +150,10 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(BlockStatement { token: Token::Lbrace, statements })
+        Ok(BlockStatement {
+            token: Token::Lbrace,
+            statements,
+        })
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -232,9 +238,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_prefix(&mut self) -> Result<Expression, ParserError> {
-        match &self.curr_token {
+        match &mut self.curr_token {
             Token::Identifier(ident) => Ok(Expression::Identifier(Identifier(ident.to_string()))),
             Token::Integer(i) => Ok(Expression::Integer(*i)),
+            Token::BigInteger(bi) => Ok(Expression::BigInteger(mem::replace(
+                bi,
+                BigInt::new(bi.sign(), vec![]),
+            ))),
             Token::Boolean(_) => Ok(Expression::Boolean(BooleanExpression {
                 token: self.curr_token.clone(),
                 value: self.curr_token == Token::Boolean(true),
@@ -336,6 +346,10 @@ mod tests {
             ("let x = 5;", "let x = 5;"),
             ("let y = 10;", "let y = 10;"),
             ("let foobar = 838383;", "let foobar = 838383;"),
+            (
+                "let big = 99999999999999999999999999999999999999999999999999;",
+                "let big = 99999999999999999999999999999999999999999999999999;",
+            ),
         ];
 
         for (input, expected_string) in tests {

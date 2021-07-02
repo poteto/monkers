@@ -1,7 +1,10 @@
+use num::BigInt;
+
 use crate::{
     parser::ParserError,
     token::{IdentifierType, IntegerSize, Token},
 };
+
 use std::fmt;
 
 // Program
@@ -107,6 +110,7 @@ impl fmt::Display for BlockStatement {
 pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
+    BigInteger(BigInt),
     Prefix(PrefixExpression),
     Infix(InfixExpression),
     Boolean(BooleanExpression),
@@ -120,6 +124,7 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(ident) => ident.fmt(f),
             Expression::Integer(i) => i.fmt(f),
+            Expression::BigInteger(bi) => bi.fmt(f),
             Expression::Prefix(expression) => write!(
                 f,
                 "({operator}{right})",

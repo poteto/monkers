@@ -23,7 +23,7 @@ fn main() {
 
                 match eval(&program) {
                     Ok(ir) => println!("{}", ir),
-                    Err(_) => eprintln!("Something went wrong!"),
+                    Err(error) => eprintln!("{}", error),
                 };
             }
             Err(ReadlineError::Interrupted) => {

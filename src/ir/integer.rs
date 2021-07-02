@@ -1,7 +1,9 @@
 use std::fmt;
 
+use crate::token::IntegerSize;
+
 pub struct IRInteger {
-    pub value: isize,
+    pub value: IntegerSize,
 }
 
 impl fmt::Display for IRInteger {

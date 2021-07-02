@@ -1,6 +1,8 @@
+use num::BigInt;
+
 use std::fmt;
 
-pub type IntegerSize = isize;
+pub type IntegerSize = i64;
 pub type IdentifierType = String;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -11,6 +13,7 @@ pub enum Token {
 
     Identifier(IdentifierType),
     Integer(IntegerSize),
+    BigInteger(BigInt),
     String(String),
     Boolean(bool),
 
@@ -54,6 +57,7 @@ impl fmt::Display for Token {
 
             Token::Identifier(s) => write!(f, "Identifier({})", s),
             Token::Integer(i) => i.fmt(f),
+            Token::BigInteger(bi) => bi.fmt(f),
             Token::String(s) => s.fmt(f),
             Token::Boolean(b) => write!(f, "Boolean({})", b),
 
