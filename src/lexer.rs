@@ -1,5 +1,4 @@
 use crate::token::{lookup_identifier, IntegerSize, Token};
-use std::result;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
@@ -25,7 +24,7 @@ impl<'a> Lexer<'a> {
         lexer
     }
 
-    fn peek_char(&self) -> result::Result<char, &str> {
+    fn peek_char(&self) -> Result<char, &str> {
         if self.read_position >= self.input.len() {
             Ok('0')
         } else if let Some(ch) = self.input.chars().nth(self.read_position) {
