@@ -21,12 +21,12 @@ fn main() {
                 let program = parser.parse_program();
 
                 for error in &program.errors {
-                    eprintln!("{}", error);
+                    eprintln!("Error during parse: {}", error);
                 }
 
                 match eval(&program) {
                     Ok(ir) => println!("{}", ir),
-                    Err(_) => eprintln!("Something went wrong!"),
+                    Err(error) => eprintln!("Error during eval: {}", error),
                 };
             }
             Err(ReadlineError::Interrupted) => {
