@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct IRNull();
 
 impl fmt::Display for IRNull {

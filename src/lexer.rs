@@ -118,7 +118,7 @@ impl<'a> Lexer<'a> {
             '}' => token = Token::Rbrace,
 
             _ if self.ch.is_ascii_alphabetic() => {
-                let interner = self.interner.clone();
+                let interner = Rc::clone(&self.interner);
                 let literal = self.read_identifier();
                 // early return as we don't need to call `read_char` again past the `match` statement
                 return lookup_identifier(interner, literal);

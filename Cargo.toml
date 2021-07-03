@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 rustyline = "8.2.0"
 string-interner = "0.12.2"
+fnv = "1.0.7"

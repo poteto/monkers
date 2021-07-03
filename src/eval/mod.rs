@@ -1,197 +1,255 @@
+mod env;
 mod error;
 
+use string_interner::StringInterner;
+
 use crate::ast::{
-    BlockStatement, Expression, IfExpression, InfixExpression, PrefixExpression, Program, Statement,
+    BlockStatement, Expression, Identifier, IfExpression, InfixExpression, PrefixExpression,
+    Program, Statement,
 };
+pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
 use crate::ir::{IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
-use std::mem;
+use std::{cell::RefCell, mem, rc::Rc};
 
-pub fn eval(program: &Program) -> Result<IR, EvalError> {
-    let statements = &program.statements;
-    if statements.is_empty() {
-        Ok(IR::Nothing)
-    } else {
-        eval_program(statements)
-    }
+pub struct Interpreter {
+    interner: Rc<RefCell<StringInterner>>,
+    env: Rc<RefCell<Env>>,
 }
 
-fn eval_program(statements: &Vec<Statement>) -> Result<IR, EvalError> {
-    let mut result = Ok(IR::Nothing);
-    for statement in statements {
-        result = eval_statement(statement);
-        match result {
-            Ok(IR::ReturnValue(return_value)) => {
-                return Ok(*return_value.value);
+impl Interpreter {
+    pub fn new(env: Rc<RefCell<Env>>, interner: Rc<RefCell<StringInterner>>) -> Self {
+        Self { env, interner }
+    }
+
+    pub fn eval(&self, program: &Program) -> Result<IR, EvalError> {
+        let statements = &program.statements;
+        if statements.is_empty() {
+            Ok(IR::Nothing)
+        } else {
+            self.eval_program(statements)
+        }
+    }
+
+    fn eval_program(&self, statements: &Vec<Statement>) -> Result<IR, EvalError> {
+        let mut result = Ok(IR::Nothing);
+        for statement in statements {
+            result = self.eval_statement(statement);
+            match result {
+                Ok(IR::ReturnValue(return_value)) => {
+                    return Ok(*return_value.value);
+                }
+                Err(_) => {
+                    return result;
+                }
+                _ => {}
+            };
+        }
+        result
+    }
+
+    fn eval_statement(&self, statement: &Statement) -> Result<IR, EvalError> {
+        match statement {
+            Statement::Let(statement) => {
+                let value = self.eval_expression(&statement.value)?;
+                self.env.borrow_mut().set(&statement.name.0, value.clone());
+                Ok(value)
             }
-            Err(_) => {
-                return result;
+            Statement::Return(statement) => {
+                let value = self.eval_expression(&statement.return_value)?;
+                Ok(IR::ReturnValue(IRReturnValue {
+                    value: Box::new(value),
+                }))
             }
-            _ => {}
-        };
-    }
-    result
-}
-
-fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
-    match statement {
-        Statement::Let(_) => Err(EvalError::NotImplementedYet("let".to_string())),
-        Statement::Return(statement) => {
-            let value = eval_expression(&statement.return_value)?;
-            Ok(IR::ReturnValue(IRReturnValue {
-                value: Box::new(value),
-            }))
+            Statement::Expression(expression) => self.eval_expression(expression),
+            Statement::Block(statement) => self.eval_program(&statement.statements),
         }
-        Statement::Expression(expression) => eval_expression(expression),
-        Statement::Block(statement) => eval_program(&statement.statements),
     }
-}
 
-fn eval_block_statement(block_statement: &BlockStatement) -> Result<IR, EvalError> {
-    let mut result = Ok(IR::Nothing);
-    for statement in &block_statement.statements {
-        result = eval_statement(statement);
-        match result {
-            Ok(IR::ReturnValue(_)) | Err(_) => {
-                return result;
+    fn eval_block_statement(&self, block_statement: &BlockStatement) -> Result<IR, EvalError> {
+        let mut result = Ok(IR::Nothing);
+        for statement in &block_statement.statements {
+            result = self.eval_statement(statement);
+            match result {
+                Ok(IR::ReturnValue(_)) | Err(_) => {
+                    return result;
+                }
+                _ => {}
+            };
+        }
+        result
+    }
+
+    fn eval_expression(&self, expression: &Expression) -> Result<IR, EvalError> {
+        match expression {
+            Expression::Identifier(Identifier(identifier_key)) => {
+                if let Some(value) = self.env.borrow_mut().get(&identifier_key) {
+                    Ok(value.clone())
+                } else {
+                    let interner = self.interner.borrow_mut();
+                    let identifier = interner
+                        .resolve(*identifier_key)
+                        .expect("Identifier should have been interned");
+                    Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
+                }
             }
-            _ => {}
-        };
-    }
-    result
-}
-
-fn eval_expression(expression: &Expression) -> Result<IR, EvalError> {
-    match expression {
-        Expression::Integer(value) => Ok(IR::Integer(IRInteger {
-            value: value.clone(),
-        })),
-        Expression::Boolean(expression) => Ok(get_interned_bool(expression.value)),
-        Expression::Prefix(expression) => {
-            let right = eval_expression(&expression.right)?;
-            eval_prefix_expression(&expression, right)
+            Expression::Integer(value) => Ok(IR::Integer(IRInteger {
+                value: value.clone(),
+            })),
+            Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
+            Expression::Prefix(expression) => {
+                let right = self.eval_expression(&expression.right)?;
+                self.eval_prefix_expression(&expression, right)
+            }
+            Expression::Infix(expression) => {
+                let left = self.eval_expression(&expression.left)?;
+                let right = self.eval_expression(&expression.right)?;
+                self.eval_infix_expression(expression, (left, right))
+            }
+            Expression::If(expression) => self.eval_if_expression(expression),
+            expression => Err(EvalError::NotImplementedYet(expression.to_string())),
         }
-        Expression::Infix(expression) => {
-            let left = eval_expression(&expression.left)?;
-            let right = eval_expression(&expression.right)?;
-            eval_infix_expression(expression, (left, right))
-        }
-        Expression::If(expression) => eval_if_expression(expression),
-        expression => Err(EvalError::NotImplementedYet(expression.to_string())),
     }
-}
 
-fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> Result<IR, EvalError> {
-    match &expression.token {
-        Token::Bang => match right {
-            IR::Boolean(TRUE) => Ok(IR::Boolean(FALSE)),
-            IR::Boolean(FALSE) => Ok(IR::Boolean(TRUE)),
-            IR::Null(NULL) => Ok(IR::Boolean(TRUE)),
-            _ => Ok(IR::Boolean(FALSE)),
-        },
-        Token::Minus => match right {
-            IR::Integer(integer) => Ok(IR::Integer(IRInteger {
-                value: -integer.value,
-            })),
-            _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
-        },
-        token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
-    }
-}
-
-fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result<IR, EvalError> {
-    match arms {
-        (IR::Integer(left), IR::Integer(right)) => match &expression.token {
-            Token::Plus => Ok(IR::Integer(IRInteger {
-                value: left.value + right.value,
-            })),
-            Token::Minus => Ok(IR::Integer(IRInteger {
-                value: left.value - right.value,
-            })),
-            Token::Asterisk => Ok(IR::Integer(IRInteger {
-                value: left.value * right.value,
-            })),
-            Token::Slash => Ok(IR::Integer(IRInteger {
-                value: left.value / right.value,
-            })),
-            Token::LessThan => Ok(get_interned_bool(left.value < right.value)),
-            Token::GreaterThan => Ok(get_interned_bool(left.value > right.value)),
-            Token::Equal => Ok(get_interned_bool(left.value == right.value)),
-            Token::NotEqual => Ok(get_interned_bool(left.value != right.value)),
-            token => Err(EvalError::UnknownOperator(format!(
-                "{left} {operator} {right}",
-                left = left,
-                operator = token,
-                right = right
-            ))),
-        },
-        (left, right) if expression.token == Token::Equal => Ok(get_interned_bool(left == right)),
-        (left, right) if expression.token == Token::NotEqual => {
-            Ok(get_interned_bool(left != right))
+    fn eval_prefix_expression(
+        &self,
+        expression: &PrefixExpression,
+        right: IR,
+    ) -> Result<IR, EvalError> {
+        match &expression.token {
+            Token::Bang => match right {
+                IR::Boolean(TRUE) => Ok(IR::Boolean(FALSE)),
+                IR::Boolean(FALSE) => Ok(IR::Boolean(TRUE)),
+                IR::Null(NULL) => Ok(IR::Boolean(TRUE)),
+                _ => Ok(IR::Boolean(FALSE)),
+            },
+            Token::Minus => match right {
+                IR::Integer(integer) => Ok(IR::Integer(IRInteger {
+                    value: -integer.value,
+                })),
+                _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
+            },
+            token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
         }
-        (left, right) if mem::discriminant(&left) != mem::discriminant(&right) => {
-            Err(EvalError::TypeError(format!(
+    }
+
+    fn eval_infix_expression(
+        &self,
+        expression: &InfixExpression,
+        arms: (IR, IR),
+    ) -> Result<IR, EvalError> {
+        match arms {
+            (IR::Integer(left), IR::Integer(right)) => match &expression.token {
+                Token::Plus => Ok(IR::Integer(IRInteger {
+                    value: left.value + right.value,
+                })),
+                Token::Minus => Ok(IR::Integer(IRInteger {
+                    value: left.value - right.value,
+                })),
+                Token::Asterisk => Ok(IR::Integer(IRInteger {
+                    value: left.value * right.value,
+                })),
+                Token::Slash => Ok(IR::Integer(IRInteger {
+                    value: left.value / right.value,
+                })),
+                Token::LessThan => Ok(self.get_interned_bool(left.value < right.value)),
+                Token::GreaterThan => Ok(self.get_interned_bool(left.value > right.value)),
+                Token::Equal => Ok(self.get_interned_bool(left.value == right.value)),
+                Token::NotEqual => Ok(self.get_interned_bool(left.value != right.value)),
+                token => Err(EvalError::UnknownOperator(format!(
+                    "{left} {operator} {right}",
+                    left = left,
+                    operator = token,
+                    right = right
+                ))),
+            },
+            (left, right) if expression.token == Token::Equal => {
+                Ok(self.get_interned_bool(left == right))
+            }
+            (left, right) if expression.token == Token::NotEqual => {
+                Ok(self.get_interned_bool(left != right))
+            }
+            (left, right) if mem::discriminant(&left) != mem::discriminant(&right) => {
+                Err(EvalError::TypeError(format!(
+                    "{left} {operator} {right}",
+                    left = left,
+                    operator = expression.token,
+                    right = right
+                )))
+            }
+            (left, right) => Err(EvalError::UnknownOperator(format!(
                 "{left} {operator} {right}",
                 left = left,
                 operator = expression.token,
                 right = right
-            )))
+            ))),
         }
-        (left, right) => Err(EvalError::UnknownOperator(format!(
-            "{left} {operator} {right}",
-            left = left,
-            operator = expression.token,
-            right = right
-        ))),
     }
-}
 
-fn eval_if_expression(expression: &IfExpression) -> Result<IR, EvalError> {
-    if let Some(condition) = &expression.condition {
-        let condition = eval_expression(&condition)?;
-        if is_truthy(condition) {
-            if let Some(consequence) = &expression.consequence {
-                eval_block_statement(consequence)
+    fn eval_if_expression(&self, expression: &IfExpression) -> Result<IR, EvalError> {
+        if let Some(condition) = &expression.condition {
+            let condition = self.eval_expression(&condition)?;
+            if self.is_truthy(condition) {
+                if let Some(consequence) = &expression.consequence {
+                    self.eval_block_statement(consequence)
+                } else {
+                    Err(EvalError::InvalidExpression(expression.to_string()))
+                }
+            } else if let Some(alternative) = &expression.alternative {
+                self.eval_block_statement(alternative)
             } else {
-                Err(EvalError::InvalidExpression(expression.to_string()))
+                Ok(IR::Null(NULL))
             }
-        } else if let Some(alternative) = &expression.alternative {
-            eval_block_statement(alternative)
         } else {
-            Ok(IR::Null(NULL))
+            Err(EvalError::InvalidExpression(expression.to_string()))
         }
-    } else {
-        Err(EvalError::InvalidExpression(expression.to_string()))
     }
-}
 
-fn get_interned_bool(native_value: bool) -> IR {
-    match native_value {
-        true => IR::Boolean(TRUE),
-        false => IR::Boolean(FALSE),
+    fn get_interned_bool(&self, native_value: bool) -> IR {
+        match native_value {
+            true => IR::Boolean(TRUE),
+            false => IR::Boolean(FALSE),
+        }
     }
-}
 
-fn is_truthy(ir: IR) -> bool {
-    match ir {
-        IR::Null(_) => false,
-        IR::Boolean(FALSE) => false,
-        IR::Boolean(TRUE) => true,
-        _ => true,
+    fn is_truthy(&self, ir: IR) -> bool {
+        match ir {
+            IR::Null(_) => false,
+            IR::Boolean(FALSE) => false,
+            IR::Boolean(TRUE) => true,
+            _ => true,
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{rc::Rc, cell::RefCell};
+    use std::{cell::RefCell, rc::Rc};
     use string_interner::StringInterner;
 
-    use crate::eval::eval;
+    use crate::eval::{Env, Interpreter};
     use crate::ir::{IRBoolean, IRInteger, IR};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
+
+    use super::error::EvalError;
+
+    fn test_eval(input: &str) -> Result<IR, EvalError> {
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let lexer = Lexer::new(input, Rc::clone(&interner));
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let env = Rc::new(RefCell::new(Env::new()));
+        let interpreter = Interpreter::new(env, Rc::clone(&interner));
+
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
+
+        interpreter.eval(&program)
+    }
 
     #[test]
     fn it_evaluates_integer_literals() {
@@ -214,16 +272,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(IR::Integer(IRInteger { value })) => {
                     assert_eq!(expected, value);
@@ -263,16 +312,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(IR::Boolean(IRBoolean { value })) => {
                     assert_eq!(expected, value);
@@ -299,16 +339,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(IR::Boolean(IRBoolean { value })) => {
                     assert_eq!(expected, value);
@@ -336,16 +367,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(IR::Integer(IRInteger { value })) => {
                     assert_eq!(expected.unwrap(), value);
@@ -382,16 +404,7 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(IR::Integer(IRInteger { value })) => {
                     assert_eq!(expected, value);
@@ -427,25 +440,42 @@ mod tests {
 }"#,
                 "Unknown Operator: true + false",
             ),
+            ("foobar;", "Unknown Identifier: foobar"),
         ];
 
         for (input, expected) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            let ir = eval(&program);
+            let ir = test_eval(input);
             match ir {
                 Ok(ir_object) => {
                     panic!("Didn't expect {}", ir_object);
                 }
                 Err(err) => {
                     assert_eq!(expected, err.to_string());
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_let_statements() {
+        let tests = vec![
+            ("let a = 5; a;", 5),
+            ("let a = 5 * 5; a;", 25),
+            ("let a = 5; let b = a; b;", 5),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ];
+
+        for (input, expected) in tests {
+            let ir = test_eval(input);
+            match ir {
+                Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected, value);
+                }
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    panic!("{}", err);
                 }
             }
         }

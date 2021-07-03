@@ -2,6 +2,7 @@ use crate::token::IntegerSize;
 
 use std::fmt;
 
+#[derive(Clone)]
 pub struct IRInteger {
     pub value: IntegerSize,
 }
