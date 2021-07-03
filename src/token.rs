@@ -1,7 +1,8 @@
+use string_interner::{symbol::SymbolU32, Symbol};
+
 use std::fmt;
 
 pub type IntegerSize = i64;
-pub type IdentifierType = String;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Token {
@@ -9,7 +10,7 @@ pub enum Token {
     Illegal(char),
     EndOfFile,
 
-    Identifier(IdentifierType),
+    Identifier(SymbolU32),
     Integer(IntegerSize),
     String(String),
     Boolean(bool),
@@ -52,7 +53,7 @@ impl fmt::Display for Token {
             Token::Illegal(c) => write!(f, "Illegal({})", c),
             Token::EndOfFile => write!(f, "EOF"),
 
-            Token::Identifier(s) => write!(f, "Identifier({})", s),
+            Token::Identifier(s) => write!(f, "Identifier({:?})", s.to_usize()),
             Token::Integer(i) => i.fmt(f),
             Token::String(s) => s.fmt(f),
             Token::Boolean(b) => write!(f, "Boolean({})", b),
@@ -87,18 +88,5 @@ impl fmt::Display for Token {
             Token::If => write!(f, "if"),
             Token::Else => write!(f, "else"),
         }
-    }
-}
-
-pub fn lookup_identifier(identifier: String) -> Token {
-    match identifier.as_str() {
-        "fn" => Token::Function,
-        "let" => Token::Let,
-        "true" => Token::Boolean(true),
-        "false" => Token::Boolean(false),
-        "if" => Token::If,
-        "else" => Token::Else,
-        "return" => Token::Return,
-        _ => Token::Identifier(identifier),
     }
 }

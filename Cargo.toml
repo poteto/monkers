@@ -8,6 +8,4 @@ edition = "2018"
 
 [dependencies]
 rustyline = "8.2.0"
-
-[dev-dependencies]
-test-case = "1.0.0"
+string-interner = "0.12.2"

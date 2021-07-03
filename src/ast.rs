@@ -1,6 +1,8 @@
+use string_interner::{Symbol, symbol::SymbolU32};
+
 use crate::{
     parser::ParserError,
-    token::{IdentifierType, IntegerSize, Token},
+    token::{IntegerSize, Token},
 };
 use std::fmt;
 
@@ -142,12 +144,11 @@ impl fmt::Display for Expression {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Identifier(pub IdentifierType);
+pub struct Identifier(pub SymbolU32);
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)?;
-        Ok(())
+        write!(f, "Identifier({:?})", self.0.to_usize())
     }
 }
 
@@ -182,10 +183,9 @@ pub struct IfExpression {
 
 impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let (Some(condition), Some(consequence)) = (
-            self.condition.as_ref(),
-            self.consequence.as_ref(),
-        ) {
+        if let (Some(condition), Some(consequence)) =
+            (self.condition.as_ref(), self.consequence.as_ref())
+        {
             write!(
                 f,
                 "{token} {cond} {cons}",
