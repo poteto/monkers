@@ -1,6 +1,8 @@
+use string_interner::symbol::SymbolU32;
+
 use crate::{
     parser::ParserError,
-    token::{IdentifierType, IntegerSize, Token},
+    token::{IntegerSize, Token},
 };
 use std::fmt;
 
@@ -142,12 +144,12 @@ impl fmt::Display for Expression {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Identifier(pub IdentifierType);
+pub struct Identifier(pub SymbolU32);
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)?;
-        Ok(())
+        // TODO
+        write!(f, "{:?}", self.0)
     }
 }
 

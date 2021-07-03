@@ -1,5 +1,7 @@
 mod error;
 
+use string_interner::{symbol::SymbolU32, StringInterner};
+
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
@@ -10,7 +12,7 @@ use crate::{
     lexer::Lexer,
     token::Token,
 };
-use std::mem;
+use std::{cell::RefCell, mem, rc::Rc};
 
 #[derive(PartialEq, PartialOrd)]
 enum Precedence {
@@ -36,14 +38,16 @@ fn precedence_for(token: &Token) -> Precedence {
 
 #[derive(Debug)]
 pub struct Parser<'a> {
+    interner: Rc<RefCell<StringInterner>>,
     lexer: Lexer<'a>,
     curr_token: Token,
     peek_token: Token,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>) -> Self {
+    pub fn new(lexer: Lexer<'a>, interner: Rc<RefCell<StringInterner>>) -> Self {
         let mut parser = Parser {
+            interner,
             lexer,
             curr_token: Token::None,
             peek_token: Token::None,
@@ -99,7 +103,7 @@ impl<'a> Parser<'a> {
             let statement = LetStatement {
                 token: Token::Let,
                 name: Identifier(ident),
-                value: self.parse_expression(Precedence::Lowest)?
+                value: self.parse_expression(Precedence::Lowest)?,
             };
             if self.peek_token == Token::Semicolon {
                 self.next_token();
@@ -118,7 +122,7 @@ impl<'a> Parser<'a> {
         self.next_token();
         let statement = ReturnStatement {
             token: Token::Return,
-            return_value: self.parse_expression(Precedence::Lowest)?
+            return_value: self.parse_expression(Precedence::Lowest)?,
         };
         if self.peek_token == Token::Semicolon {
             self.next_token();
@@ -147,7 +151,10 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(BlockStatement { token: Token::Lbrace, statements })
+        Ok(BlockStatement {
+            token: Token::Lbrace,
+            statements,
+        })
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -219,12 +226,14 @@ impl<'a> Parser<'a> {
         }
 
         self.next_token();
-        identifiers.push(Identifier(self.curr_token.to_string()));
+        let identifier = self.expect_identifier()?;
+        identifiers.push(Identifier(identifier));
 
         while self.peek_token == Token::Comma {
             self.next_token();
             self.next_token();
-            identifiers.push(Identifier(self.curr_token.to_string()));
+            let identifier = self.expect_identifier()?;
+            identifiers.push(Identifier(identifier));
         }
 
         self.expect_peek(Token::Rparen)?;
@@ -233,7 +242,7 @@ impl<'a> Parser<'a> {
 
     fn parse_prefix(&mut self) -> Result<Expression, ParserError> {
         match &self.curr_token {
-            Token::Identifier(ident) => Ok(Expression::Identifier(Identifier(ident.to_string()))),
+            Token::Identifier(ident) => Ok(Expression::Identifier(Identifier(*ident))),
             Token::Integer(i) => Ok(Expression::Integer(*i)),
             Token::Boolean(_) => Ok(Expression::Boolean(BooleanExpression {
                 token: self.curr_token.clone(),
@@ -323,12 +332,22 @@ impl<'a> Parser<'a> {
             col: self.lexer.col,
         })
     }
+
+    fn expect_identifier(&self) -> Result<SymbolU32, ParserError> {
+        if let Token::Identifier(identifier) = self.curr_token {
+            Ok(identifier)
+        } else {
+            Err(self.parse_syntax_error(format!("Expected an identifier, got {}", self.curr_token)))
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::lexer::Lexer;
     use crate::parser::Parser;
+    use std::{cell::RefCell, rc::Rc};
+    use string_interner::StringInterner;
 
     #[test]
     fn it_parses_let_statements() {
@@ -339,8 +358,9 @@ mod tests {
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             if !program.errors.is_empty() {
@@ -359,8 +379,9 @@ mod tests {
         let expected_len = 1;
         let expected = "if (x < y) x else y";
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let lexer = Lexer::new(input, interner.clone());
+        let mut parser = Parser::new(lexer, interner.clone());
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -388,8 +409,9 @@ let 838383;"#;
             "Unhandled prefix operator: `=`",
             "[Row: 3, Col: 11] Expected identifier to follow `let`, got `838383` instead",
         ];
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let lexer = Lexer::new(input, interner.clone());
+        let mut parser = Parser::new(lexer, interner.clone());
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -413,8 +435,9 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -433,8 +456,9 @@ let 838383;"#;
         let expected = "5";
         let expected_len = 1;
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let lexer = Lexer::new(input, interner.clone());
+        let mut parser = Parser::new(lexer, interner.clone());
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -461,8 +485,9 @@ let 838383;"#;
         ];
 
         for (input, expected_operator, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -493,8 +518,9 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -523,8 +549,9 @@ let 838383;"#;
         ];
 
         for (input, expected_operator, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -573,8 +600,9 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -603,8 +631,9 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -633,8 +662,9 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {

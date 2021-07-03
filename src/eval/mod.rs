@@ -40,7 +40,9 @@ fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
         Statement::Let(_) => Err(EvalError::NotImplementedYet("let".to_string())),
         Statement::Return(statement) => {
             let value = eval_expression(&statement.return_value)?;
-            Ok(IR::ReturnValue(IRReturnValue { value: Box::new(value)}))
+            Ok(IR::ReturnValue(IRReturnValue {
+                value: Box::new(value),
+            }))
         }
         Statement::Expression(expression) => eval_expression(expression),
         Statement::Block(statement) => eval_program(&statement.statements),
@@ -183,6 +185,9 @@ fn is_truthy(ir: IR) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use std::{rc::Rc, cell::RefCell};
+    use string_interner::StringInterner;
+
     use crate::eval::eval;
     use crate::ir::{IRBoolean, IRInteger, IR};
     use crate::lexer::Lexer;
@@ -209,8 +214,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -257,8 +263,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -292,8 +299,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -328,8 +336,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -373,8 +382,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -420,8 +430,9 @@ mod tests {
         ];
 
         for (input, expected) in tests {
-            let lexer = Lexer::new(input);
-            let mut parser = Parser::new(lexer);
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            let lexer = Lexer::new(input, interner.clone());
+            let mut parser = Parser::new(lexer, interner.clone());
             let program = parser.parse_program();
 
             for error in &program.errors {

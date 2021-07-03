@@ -1,7 +1,10 @@
-use crate::token::{lookup_identifier, IntegerSize, Token};
+use crate::token::{IntegerSize, Token};
+use std::{cell::RefCell, rc::Rc};
+use string_interner::StringInterner;
 
 #[derive(Debug)]
 pub struct Lexer<'a> {
+    interner: Rc<RefCell<StringInterner>>,
     input: &'a str,
     position: usize,
     read_position: usize,
@@ -11,8 +14,9 @@ pub struct Lexer<'a> {
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input: &'a str, interner: Rc<RefCell<StringInterner>>) -> Self {
         let mut lexer = Lexer {
+            interner,
             input,
             position: 0,
             read_position: 0,
@@ -57,28 +61,20 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn read_identifier(&mut self) -> String {
+    fn read_identifier(&mut self) -> &str {
         let position = self.position;
         while self.ch.is_ascii_alphabetic() {
             self.read_char();
         }
-        self.input
-            .chars()
-            .skip(position)
-            .take(self.position - position)
-            .collect()
+        &self.input[position..self.position]
     }
 
-    fn read_number(&mut self) -> String {
+    fn read_number(&mut self) -> &str {
         let position = self.position;
         while self.ch.is_ascii_digit() {
             self.read_char();
         }
-        self.input
-            .chars()
-            .skip(position)
-            .take(self.position - position)
-            .collect()
+        &self.input[position..self.position]
     }
 
     pub fn is_end_of_file(&self) -> bool {
@@ -122,9 +118,10 @@ impl<'a> Lexer<'a> {
             '}' => token = Token::Rbrace,
 
             _ if self.ch.is_ascii_alphabetic() => {
+                let interner = self.interner.clone();
                 let literal = self.read_identifier();
                 // early return as we don't need to call `read_char` again past the `match` statement
-                return lookup_identifier(literal);
+                return lookup_identifier(interner, literal);
             }
             _ if self.ch.is_ascii_digit() => {
                 let literal = self.read_number();
@@ -152,10 +149,27 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
+fn lookup_identifier(interner: Rc<RefCell<StringInterner>>, identifier: &str) -> Token {
+    match identifier {
+        "fn" => Token::Function,
+        "let" => Token::Let,
+        "true" => Token::Boolean(true),
+        "false" => Token::Boolean(false),
+        "if" => Token::If,
+        "else" => Token::Else,
+        "return" => Token::Return,
+        _ => Token::Identifier(interner.borrow_mut().get_or_intern(identifier)),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
     use crate::lexer::Lexer;
     use crate::token::Token;
+    use string_interner::StringInterner;
 
     #[test]
     fn it_lexes_operators_and_delimiters() {
@@ -171,7 +185,8 @@ mod tests {
             Token::Semicolon,
             Token::EndOfFile,
         ];
-        let mut lexer = Lexer::new(input);
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let mut lexer = Lexer::new(input, interner);
 
         for expect in expected {
             let token = lexer.next_token();
@@ -205,41 +220,45 @@ if (5 < 10) {
 
 10 == 10;
 10 != 9;"#;
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let test_interner = interner.clone();
+        let mut test_interner = test_interner.borrow_mut();
+
         let expected = vec![
             Token::Let,
-            Token::Identifier(String::from("five")),
+            Token::Identifier(test_interner.get_or_intern("five")),
             Token::Assign,
             Token::Integer(5),
             Token::Semicolon,
             Token::Let,
-            Token::Identifier(String::from("ten")),
+            Token::Identifier(test_interner.get_or_intern("ten")),
             Token::Assign,
             Token::Integer(10),
             Token::Semicolon,
             Token::Let,
-            Token::Identifier(String::from("add")),
+            Token::Identifier(test_interner.get_or_intern("add")),
             Token::Assign,
             Token::Function,
             Token::Lparen,
-            Token::Identifier(String::from("x")),
+            Token::Identifier(test_interner.get_or_intern("x")),
             Token::Comma,
-            Token::Identifier(String::from("y")),
+            Token::Identifier(test_interner.get_or_intern("y")),
             Token::Rparen,
             Token::Lbrace,
-            Token::Identifier(String::from("x")),
+            Token::Identifier(test_interner.get_or_intern("x")),
             Token::Plus,
-            Token::Identifier(String::from("y")),
+            Token::Identifier(test_interner.get_or_intern("y")),
             Token::Semicolon,
             Token::Rbrace,
             Token::Semicolon,
             Token::Let,
-            Token::Identifier(String::from("result")),
+            Token::Identifier(test_interner.get_or_intern("result")),
             Token::Assign,
-            Token::Identifier(String::from("add")),
+            Token::Identifier(test_interner.get_or_intern("add")),
             Token::Lparen,
-            Token::Identifier(String::from("five")),
+            Token::Identifier(test_interner.get_or_intern("five")),
             Token::Comma,
-            Token::Identifier(String::from("ten")),
+            Token::Identifier(test_interner.get_or_intern("ten")),
             Token::Rparen,
             Token::Semicolon,
             Token::Bang,
@@ -281,7 +300,8 @@ if (5 < 10) {
             Token::Semicolon,
             Token::EndOfFile,
         ];
-        let mut lexer = Lexer::new(input);
+        drop(test_interner);
+        let mut lexer = Lexer::new(input, interner.clone());
 
         for expect in expected {
             let token = lexer.next_token();
@@ -311,7 +331,8 @@ let world = 2;"#;
             (';', 2, 14),
             ('0', 2, 15),
         ];
-        let mut lexer = Lexer::new(input);
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let mut lexer = Lexer::new(input, interner);
 
         for expect in expected {
             assert_eq!(expect, (lexer.ch, lexer.row, lexer.col));
