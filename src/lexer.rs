@@ -130,7 +130,7 @@ impl<'a> Lexer<'a> {
                 let literal = self.read_number();
                 match literal.parse::<IntegerSize>() {
                     Ok(i) => return Token::Integer(i),
-                    Err(_) => panic!("Could not parse lexed integer literal"),
+                    Err(error) => panic!("{}", error),
                 }
             }
             _ => token = Token::Illegal(self.ch),

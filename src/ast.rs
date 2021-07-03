@@ -134,24 +134,7 @@ impl fmt::Display for Expression {
                 right = expression.right
             ),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
-            Expression::If(expression) => {
-                if let (Some(condition), Some(consequence)) = (
-                    expression.condition.as_ref(),
-                    expression.consequence.as_ref(),
-                ) {
-                    write!(
-                        f,
-                        "{token} {cond} {cons}",
-                        token = Token::If,
-                        cond = condition,
-                        cons = consequence
-                    )?;
-                    if let Some(alternative) = &expression.alternative {
-                        write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
-                    }
-                }
-                Ok(())
-            }
+            Expression::If(expression) => expression.fmt(f),
             Expression::Function(expression) => expression.fmt(f),
             Expression::Call(expression) => expression.fmt(f),
         }
@@ -195,6 +178,27 @@ pub struct IfExpression {
     pub condition: Option<Box<Expression>>,
     pub consequence: Option<BlockStatement>,
     pub alternative: Option<BlockStatement>,
+}
+
+impl fmt::Display for IfExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let (Some(condition), Some(consequence)) = (
+            self.condition.as_ref(),
+            self.consequence.as_ref(),
+        ) {
+            write!(
+                f,
+                "{token} {cond} {cons}",
+                token = Token::If,
+                cond = condition,
+                cons = consequence
+            )?;
+            if let Some(alternative) = &self.alternative {
+                write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

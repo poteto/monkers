@@ -17,6 +17,7 @@ pub enum IRObjectKind {
 }
 
 pub enum IR {
+    Nothing,
     Integer(IRInteger),
     Boolean(IRBoolean),
     Null(IRNull),
@@ -26,6 +27,7 @@ pub enum IR {
 impl fmt::Display for IR {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            IR::Nothing => Ok(()),
             IR::Integer(ir) => ir.fmt(f),
             IR::Boolean(ir) => ir.fmt(f),
             IR::Null(ir) => ir.fmt(f),
