@@ -7,6 +7,7 @@ pub enum EvalError {
     InvalidExpression(String),
     TypeError(String),
     UnknownOperator(String),
+    UnknownIdentifier(String),
 }
 
 impl fmt::Display for EvalError {
@@ -17,6 +18,7 @@ impl fmt::Display for EvalError {
             EvalError::InvalidExpression(s) => write!(f, "Invalid Expression: {}", s),
             EvalError::TypeError(s) => write!(f, "Type Error: {}", s),
             EvalError::UnknownOperator(s) => write!(f, "Unknown Operator: {}", s),
+            EvalError::UnknownIdentifier(s) => write!(f, "Unknown Identifier: {}", s),
         }
     }
 }

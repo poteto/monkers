@@ -1,4 +1,4 @@
-use string_interner::{Symbol, symbol::SymbolU32};
+use string_interner::{symbol::SymbolU32, Symbol};
 
 use crate::{
     parser::ParserError,

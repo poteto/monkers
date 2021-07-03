@@ -16,6 +16,7 @@ pub enum IRObjectKind {
     Null,
 }
 
+#[derive(Clone)]
 pub enum IR {
     Nothing,
     Integer(IRInteger),

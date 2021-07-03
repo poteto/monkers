@@ -1,6 +1,6 @@
 # monkers 🐒 + 🦀
 
-[![Rust](https://github.com/poteto/monkers/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/poteto/monkers/actions/workflows/rust.yml) [![Bors enabled](https://bors.tech/images/badge_small.svg)](https://app.bors.tech/repositories/23775)
+[![Rust](https://github.com/poteto/monkers/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/poteto/monkers/actions/workflows/rust.yml)
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
@@ -9,23 +9,20 @@ Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/
 Start the REPL by running `cargo run`, then entering some Monkey:
 
 ```
-🐒 >> let add = fn(x, y) { x + y; };
-> Let
-> Identifier("add")
-> Assign
-> Function
-> Lparen
-> Identifier("x")
-> Comma
-> Identifier("y")
-> Rparen
-> Lbrace
-> Identifier("x")
-> Plus
-> Identifier("y")
-> Semicolon
-> Rbrace
-> Semicolon
+🐒 >> let a = 5;
+5
+🐒 >> let b = a > 3;
+true
+🐒 >> let c = a * 99;
+495
+🐒 >> if (b) { 10 } else { 1 };
+10
+🐒 >> let d = if (c > a) { 99 } else { 100 };
+99
+🐒 >> d;
+99
+🐒 >> d * c * a;
+245025
 ```
 
 Command history is saved in `history.txt`.

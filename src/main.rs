@@ -1,4 +1,4 @@
-use monkers::eval::eval;
+use monkers::eval::{Env, Interpreter};
 use monkers::{lexer::Lexer, parser::Parser};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
@@ -10,23 +10,25 @@ fn main() {
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
+    let interner = Rc::new(RefCell::new(StringInterner::default()));
+    let env = Rc::new(RefCell::new(Env::new()));
+    let interpreter = Interpreter::new(env, Rc::clone(&interner));
     loop {
         let readline = rl.readline("🐒 >> ");
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
-                let interner = Rc::new(RefCell::new(StringInterner::default()));
                 let lexer = Lexer::new(&line, Rc::clone(&interner));
                 let mut parser = Parser::new(lexer);
                 let program = parser.parse_program();
 
                 for error in &program.errors {
-                    eprintln!("Error during parse: {}", error);
+                    eprintln!("{}", error);
                 }
 
-                match eval(&program) {
+                match interpreter.eval(&program) {
                     Ok(ir) => println!("{}", ir),
-                    Err(error) => eprintln!("Error during eval: {}", error),
+                    Err(error) => eprintln!("{}", error),
                 };
             }
             Err(ReadlineError::Interrupted) => {

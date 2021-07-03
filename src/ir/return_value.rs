@@ -2,6 +2,7 @@ use std::fmt;
 
 use super::IR;
 
+#[derive(Clone)]
 pub struct IRReturnValue {
     pub value: Box<IR>,
 }
