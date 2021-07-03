@@ -189,21 +189,13 @@ impl Interpreter {
     }
 
     fn eval_if_expression(&self, expression: &IfExpression) -> Result<IR, EvalError> {
-        if let Some(condition) = &expression.condition {
-            let condition = self.eval_expression(&condition)?;
-            if self.is_truthy(condition) {
-                if let Some(consequence) = &expression.consequence {
-                    self.eval_block_statement(consequence)
-                } else {
-                    Err(EvalError::InvalidExpression(expression.to_string()))
-                }
-            } else if let Some(alternative) = &expression.alternative {
-                self.eval_block_statement(alternative)
-            } else {
-                Ok(IR::Null(NULL))
-            }
+        let condition = self.eval_expression(&expression.condition)?;
+        if self.is_truthy(condition) {
+            self.eval_block_statement(&expression.consequence.as_ref().expect("1"))
+        } else if let Some(alternative) = &expression.alternative {
+            self.eval_block_statement(alternative)
         } else {
-            Err(EvalError::InvalidExpression(expression.to_string()))
+            Ok(IR::Null(NULL))
         }
     }
 

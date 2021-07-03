@@ -179,12 +179,11 @@ impl<'a> Parser<'a> {
         self.expect_peek(Token::Lparen)?;
         self.next_token();
         if let Ok(condition) = self.parse_expression(Precedence::Lowest) {
-            let condition = Some(Box::new(condition));
             self.expect_peek(Token::Rparen)?;
             self.expect_peek(Token::Lbrace)?;
             let mut expression = IfExpression {
                 token: Token::If,
-                condition,
+                condition: Box::new(condition),
                 consequence: Default::default(),
                 alternative: Default::default(),
             };

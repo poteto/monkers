@@ -9,5 +9,4 @@ impl fmt::Display for IRNull {
     }
 }
 
-#[allow(dead_code)]
 pub const NULL: IRNull = IRNull();

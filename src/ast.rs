@@ -176,14 +176,14 @@ pub struct BooleanExpression {
 #[derive(Clone, Debug, PartialEq)]
 pub struct IfExpression {
     pub token: Token,
-    pub condition: Option<Box<Expression>>,
+    pub condition: Box<Expression>,
     pub consequence: Option<BlockStatement>,
     pub alternative: Option<BlockStatement>,
 }
 
 impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let (Some(condition), Some(consequence)) =
+        if let (condition, Some(consequence)) =
             (self.condition.as_ref(), self.consequence.as_ref())
         {
             write!(
