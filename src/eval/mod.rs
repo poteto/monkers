@@ -1,39 +1,36 @@
+mod error;
+
 use crate::ast::{
     BlockStatement, Expression, IfExpression, InfixExpression, PrefixExpression, Program, Statement,
 };
+use crate::eval::error::EvalError;
 use crate::ir::{IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
-use std::fmt;
+use std::mem;
 
-#[derive(Debug)]
-pub enum EvalError {
-    NotImplementedYet(String),
-    InvalidStatement,
-    InvalidExpression,
-}
-
-impl fmt::Display for EvalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EvalError::NotImplementedYet(s) => write!(f, "Not Implemented Yet: {}", s),
-            EvalError::InvalidStatement => write!(f, "Statement is invalid"),
-            EvalError::InvalidExpression => write!(f, "Expression is invalid"),
-        }
+pub fn eval(program: &Program) -> Result<IR, EvalError> {
+    let statements = &program.statements;
+    if statements.is_empty() {
+        Ok(IR::Nothing)
+    } else {
+        eval_program(statements)
     }
 }
 
-pub fn eval(program: &Program) -> Result<IR, EvalError> {
-    eval_program(&program.statements)
-}
-
 fn eval_program(statements: &Vec<Statement>) -> Result<IR, EvalError> {
-    let mut result = Err(EvalError::InvalidStatement);
+    let mut result = Ok(IR::Nothing);
     for statement in statements {
         result = eval_statement(statement);
-        if let Ok(IR::ReturnValue(return_value)) = result {
-            return Ok(*return_value.value);
-        }
+        match result {
+            Ok(IR::ReturnValue(return_value)) => {
+                return Ok(*return_value.value);
+            }
+            Err(_) => {
+                return result;
+            }
+            _ => {}
+        };
     }
     result
 }
@@ -42,13 +39,8 @@ fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
     match statement {
         Statement::Let(_) => Err(EvalError::NotImplementedYet("let".to_string())),
         Statement::Return(statement) => {
-            if let Ok(value) = eval_expression(&statement.return_value) {
-                Ok(IR::ReturnValue(IRReturnValue {
-                    value: Box::new(value),
-                }))
-            } else {
-                Err(EvalError::InvalidStatement)
-            }
+            let value = eval_expression(&statement.return_value)?;
+            Ok(IR::ReturnValue(IRReturnValue { value: Box::new(value)}))
         }
         Statement::Expression(expression) => eval_expression(expression),
         Statement::Block(statement) => eval_program(&statement.statements),
@@ -56,12 +48,15 @@ fn eval_statement(statement: &Statement) -> Result<IR, EvalError> {
 }
 
 fn eval_block_statement(block_statement: &BlockStatement) -> Result<IR, EvalError> {
-    let mut result = Err(EvalError::InvalidStatement);
+    let mut result = Ok(IR::Nothing);
     for statement in &block_statement.statements {
         result = eval_statement(statement);
-        if let Ok(IR::ReturnValue(_)) = result {
-            return result;
-        }
+        match result {
+            Ok(IR::ReturnValue(_)) | Err(_) => {
+                return result;
+            }
+            _ => {}
+        };
     }
     result
 }
@@ -74,7 +69,7 @@ fn eval_expression(expression: &Expression) -> Result<IR, EvalError> {
         Expression::Boolean(expression) => Ok(get_interned_bool(expression.value)),
         Expression::Prefix(expression) => {
             let right = eval_expression(&expression.right)?;
-            Ok(eval_prefix_expression(&expression, right))
+            eval_prefix_expression(&expression, right)
         }
         Expression::Infix(expression) => {
             let left = eval_expression(&expression.left)?;
@@ -86,21 +81,21 @@ fn eval_expression(expression: &Expression) -> Result<IR, EvalError> {
     }
 }
 
-fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> IR {
-    match expression.token {
+fn eval_prefix_expression(expression: &PrefixExpression, right: IR) -> Result<IR, EvalError> {
+    match &expression.token {
         Token::Bang => match right {
-            IR::Boolean(TRUE) => IR::Boolean(FALSE),
-            IR::Boolean(FALSE) => IR::Boolean(TRUE),
-            IR::Null(NULL) => IR::Boolean(TRUE),
-            _ => IR::Boolean(FALSE),
+            IR::Boolean(TRUE) => Ok(IR::Boolean(FALSE)),
+            IR::Boolean(FALSE) => Ok(IR::Boolean(TRUE)),
+            IR::Null(NULL) => Ok(IR::Boolean(TRUE)),
+            _ => Ok(IR::Boolean(FALSE)),
         },
         Token::Minus => match right {
-            IR::Integer(integer) => IR::Integer(IRInteger {
+            IR::Integer(integer) => Ok(IR::Integer(IRInteger {
                 value: -integer.value,
-            }),
-            _ => IR::Null(NULL),
+            })),
+            _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
         },
-        _ => IR::Null(NULL),
+        token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
     }
 }
 
@@ -123,13 +118,31 @@ fn eval_infix_expression(expression: &InfixExpression, arms: (IR, IR)) -> Result
             Token::GreaterThan => Ok(get_interned_bool(left.value > right.value)),
             Token::Equal => Ok(get_interned_bool(left.value == right.value)),
             Token::NotEqual => Ok(get_interned_bool(left.value != right.value)),
-            token => Err(EvalError::NotImplementedYet(token.to_string())),
+            token => Err(EvalError::UnknownOperator(format!(
+                "{left} {operator} {right}",
+                left = left,
+                operator = token,
+                right = right
+            ))),
         },
         (left, right) if expression.token == Token::Equal => Ok(get_interned_bool(left == right)),
         (left, right) if expression.token == Token::NotEqual => {
             Ok(get_interned_bool(left != right))
         }
-        _ => Ok(IR::Null(NULL)),
+        (left, right) if mem::discriminant(&left) != mem::discriminant(&right) => {
+            Err(EvalError::TypeError(format!(
+                "{left} {operator} {right}",
+                left = left,
+                operator = expression.token,
+                right = right
+            )))
+        }
+        (left, right) => Err(EvalError::UnknownOperator(format!(
+            "{left} {operator} {right}",
+            left = left,
+            operator = expression.token,
+            right = right
+        ))),
     }
 }
 
@@ -140,7 +153,7 @@ fn eval_if_expression(expression: &IfExpression) -> Result<IR, EvalError> {
             if let Some(consequence) = &expression.consequence {
                 eval_block_statement(consequence)
             } else {
-                Err(EvalError::InvalidExpression)
+                Err(EvalError::InvalidExpression(expression.to_string()))
             }
         } else if let Some(alternative) = &expression.alternative {
             eval_block_statement(alternative)
@@ -148,7 +161,7 @@ fn eval_if_expression(expression: &IfExpression) -> Result<IR, EvalError> {
             Ok(IR::Null(NULL))
         }
     } else {
-        Err(EvalError::InvalidExpression)
+        Err(EvalError::InvalidExpression(expression.to_string()))
     }
 }
 
@@ -378,6 +391,50 @@ mod tests {
                 }
                 Err(err) => {
                     panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_handles_errors() {
+        let tests = vec![
+            ("5 + true;", "Type Error: 5 + true"),
+            ("5 + true; 5;", "Type Error: 5 + true"),
+            ("-true;", "Unknown Operator: -true"),
+            ("true + false;", "Unknown Operator: true + false"),
+            ("5; true + false; 5;", "Unknown Operator: true + false"),
+            (
+                "if (10 > 1) { true + false; }",
+                "Unknown Operator: true + false",
+            ),
+            (
+                r#"if (10 > 1) {
+    if (10 > 1) {
+        return true + false;
+    }
+    return 1;
+}"#,
+                "Unknown Operator: true + false",
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+
+            for error in &program.errors {
+                eprintln!("{}", error);
+            }
+
+            let ir = eval(&program);
+            match ir {
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    assert_eq!(expected, err.to_string());
                 }
             }
         }
