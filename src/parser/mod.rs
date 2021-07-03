@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_let_statement(&mut self) -> Result<Statement, ParserError> {
-        if let Token::Identifier(ident) = self.peek_token.clone() {
+        if let Token::Identifier(ident) = self.peek_token {
             self.next_token(); // let -> identifier
             self.expect_peek(Token::Assign)?;
             self.next_token();
