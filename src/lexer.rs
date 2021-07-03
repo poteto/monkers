@@ -186,7 +186,7 @@ mod tests {
             Token::EndOfFile,
         ];
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let mut lexer = Lexer::new(input, interner);
+        let mut lexer = Lexer::new(input, Rc::clone(&interner));
 
         for expect in expected {
             let token = lexer.next_token();
@@ -221,7 +221,7 @@ if (5 < 10) {
 10 == 10;
 10 != 9;"#;
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let test_interner = interner.clone();
+        let test_interner = Rc::clone(&interner);
         let mut test_interner = test_interner.borrow_mut();
 
         let expected = vec![
@@ -301,7 +301,7 @@ if (5 < 10) {
             Token::EndOfFile,
         ];
         drop(test_interner);
-        let mut lexer = Lexer::new(input, interner.clone());
+        let mut lexer = Lexer::new(input, Rc::clone(&interner));
 
         for expect in expected {
             let token = lexer.next_token();
@@ -332,7 +332,7 @@ let world = 2;"#;
             ('0', 2, 15),
         ];
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let mut lexer = Lexer::new(input, interner);
+        let mut lexer = Lexer::new(input, Rc::clone(&interner));
 
         for expect in expected {
             assert_eq!(expect, (lexer.ch, lexer.row, lexer.col));

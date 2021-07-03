@@ -1,4 +1,4 @@
-use string_interner::symbol::SymbolU32;
+use string_interner::{symbol::SymbolU32, Symbol};
 
 use std::fmt;
 
@@ -53,10 +53,7 @@ impl fmt::Display for Token {
             Token::Illegal(c) => write!(f, "Illegal({})", c),
             Token::EndOfFile => write!(f, "EOF"),
 
-            Token::Identifier(s) => {
-                // TODO
-                write!(f, "Identifier({:?})", s)
-            }
+            Token::Identifier(s) => write!(f, "Identifier({:?})", s.to_usize()),
             Token::Integer(i) => i.fmt(f),
             Token::String(s) => s.fmt(f),
             Token::Boolean(b) => write!(f, "Boolean({})", b),

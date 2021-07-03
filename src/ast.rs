@@ -1,4 +1,4 @@
-use string_interner::symbol::SymbolU32;
+use string_interner::{Symbol, symbol::SymbolU32};
 
 use crate::{
     parser::ParserError,
@@ -148,8 +148,7 @@ pub struct Identifier(pub SymbolU32);
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO
-        write!(f, "{:?}", self.0)
+        write!(f, "Identifier({:?})", self.0.to_usize())
     }
 }
 
@@ -184,10 +183,9 @@ pub struct IfExpression {
 
 impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let (Some(condition), Some(consequence)) = (
-            self.condition.as_ref(),
-            self.consequence.as_ref(),
-        ) {
+        if let (Some(condition), Some(consequence)) =
+            (self.condition.as_ref(), self.consequence.as_ref())
+        {
             write!(
                 f,
                 "{token} {cond} {cons}",

@@ -216,7 +216,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -265,7 +265,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -301,7 +301,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -338,7 +338,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -384,7 +384,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -432,7 +432,7 @@ mod tests {
         for (input, expected) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
             let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {

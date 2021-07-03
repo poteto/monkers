@@ -1,6 +1,6 @@
 mod error;
 
-use string_interner::{symbol::SymbolU32, StringInterner};
+use string_interner::symbol::SymbolU32;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
     lexer::Lexer,
     token::Token,
 };
-use std::{cell::RefCell, mem, rc::Rc};
+use std::mem;
 
 #[derive(PartialEq, PartialOrd)]
 enum Precedence {
@@ -38,16 +38,14 @@ fn precedence_for(token: &Token) -> Precedence {
 
 #[derive(Debug)]
 pub struct Parser<'a> {
-    interner: Rc<RefCell<StringInterner>>,
     lexer: Lexer<'a>,
     curr_token: Token,
     peek_token: Token,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(lexer: Lexer<'a>, interner: Rc<RefCell<StringInterner>>) -> Self {
+    pub fn new(lexer: Lexer<'a>) -> Self {
         let mut parser = Parser {
-            interner,
             lexer,
             curr_token: Token::None,
             peek_token: Token::None,
@@ -352,15 +350,15 @@ mod tests {
     #[test]
     fn it_parses_let_statements() {
         let tests = vec![
-            ("let x = 5;", "let x = 5;"),
-            ("let y = 10;", "let y = 10;"),
-            ("let foobar = 838383;", "let foobar = 838383;"),
+            ("let x = 5;", "let Identifier(0) = 5;"),
+            ("let y = 10;", "let Identifier(0) = 10;"),
+            ("let foobar = 838383;", "let Identifier(0) = 838383;"),
         ];
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             if !program.errors.is_empty() {
@@ -377,11 +375,11 @@ mod tests {
     fn it_parses_if_statements() {
         let input = "if (x < y) { x } else { y }";
         let expected_len = 1;
-        let expected = "if (x < y) x else y";
+        let expected = "if (Identifier(0) < Identifier(1)) Identifier(0) else Identifier(1)";
 
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, interner.clone());
-        let mut parser = Parser::new(lexer, interner.clone());
+        let lexer = Lexer::new(input, Rc::clone(&interner));
+        let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -410,8 +408,8 @@ let 838383;"#;
             "[Row: 3, Col: 11] Expected identifier to follow `let`, got `838383` instead",
         ];
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, interner.clone());
-        let mut parser = Parser::new(lexer, interner.clone());
+        let lexer = Lexer::new(input, Rc::clone(&interner));
+        let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -436,8 +434,8 @@ let 838383;"#;
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -457,8 +455,8 @@ let 838383;"#;
         let expected_len = 1;
 
         let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, interner.clone());
-        let mut parser = Parser::new(lexer, interner.clone());
+        let lexer = Lexer::new(input, Rc::clone(&interner));
+        let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
 
         for error in &program.errors {
@@ -486,8 +484,8 @@ let 838383;"#;
 
         for (input, expected_operator, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -519,8 +517,8 @@ let 838383;"#;
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -550,8 +548,8 @@ let 838383;"#;
 
         for (input, expected_operator, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -573,14 +571,14 @@ let 838383;"#;
     #[test]
     fn it_parses_operator_precedence() {
         let tests = vec![
-            ("-a * b;", "((-a) * b)"),
-            ("!-a;", "(!(-a))"),
-            ("a + b + c;", "((a + b) + c)"),
-            ("a + b - c;", "((a + b) - c)"),
-            ("a * b * c;", "((a * b) * c)"),
-            ("a * b / c;", "((a * b) / c)"),
-            ("a + b / c;", "(a + (b / c))"),
-            ("a + b * c + d / e - f;", "(((a + (b * c)) + (d / e)) - f)"),
+            ("-a * b;", "((-Identifier(0)) * Identifier(1))"),
+            ("!-a;", "(!(-Identifier(0)))"),
+            ("a + b + c;", "((Identifier(0) + Identifier(1)) + Identifier(2))"),
+            ("a + b - c;", "((Identifier(0) + Identifier(1)) - Identifier(2))"),
+            ("a * b * c;", "((Identifier(0) * Identifier(1)) * Identifier(2))"),
+            ("a * b / c;", "((Identifier(0) * Identifier(1)) / Identifier(2))"),
+            ("a + b / c;", "(Identifier(0) + (Identifier(1) / Identifier(2)))"),
+            ("a + b * c + d / e - f;", "(((Identifier(0) + (Identifier(1) * Identifier(2))) + (Identifier(3) / Identifier(4))) - Identifier(5))"),
             ("3 + 4; -5 * 5;", "(3 + 4)((-5) * 5)"),
             ("5 > 4 == 3 < 4;", "((5 > 4) == (3 < 4))"),
             ("5 < 4 != 3 > 4;", "((5 < 4) != (3 > 4))"),
@@ -601,8 +599,8 @@ let 838383;"#;
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -620,20 +618,20 @@ let 838383;"#;
         let tests = vec![
             (
                 "fn(x, y) { x + y; };",
-                "fn(Identifier(x), Identifier(y)) {(x + y)}",
+                "fn(Identifier(0), Identifier(1)) {(Identifier(0) + Identifier(1))}",
             ),
             ("fn() {};", "fn() {}"),
-            ("fn(x) {};", "fn(Identifier(x)) {}"),
+            ("fn(x) {};", "fn(Identifier(0)) {}"),
             (
                 "fn(x, y, z) {};",
-                "fn(Identifier(x), Identifier(y), Identifier(z)) {}",
+                "fn(Identifier(0), Identifier(1), Identifier(2)) {}",
             ),
         ];
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
@@ -649,22 +647,22 @@ let 838383;"#;
     #[test]
     fn it_parses_call_expressions() {
         let tests = vec![
-            ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5))"),
-            ("a + add(b * c) + d;", "((a + add((b * c))) + d)"),
+            ("add(1, 2 * 3, 4 + 5);", "Identifier(0)(1, (2 * 3), (4 + 5))"),
+            ("a + add(b * c) + d;", "((Identifier(0) + Identifier(1)((Identifier(2) * Identifier(3)))) + Identifier(4))"),
             (
                 "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8));",
-                "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+                "Identifier(0)(Identifier(1), Identifier(2), 1, (2 * 3), (4 + 5), Identifier(0)(6, (7 * 8)))",
             ),
             (
                 "add(a + b + c * d / f + g); ",
-                "add((((a + b) + ((c * d) / f)) + g))",
+                "Identifier(0)((((Identifier(1) + Identifier(2)) + ((Identifier(3) * Identifier(4)) / Identifier(5))) + Identifier(6)))",
             ),
         ];
 
         for (input, expected_string) in tests {
             let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, interner.clone());
-            let mut parser = Parser::new(lexer, interner.clone());
+            let lexer = Lexer::new(input, Rc::clone(&interner));
+            let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
             for error in &program.errors {
