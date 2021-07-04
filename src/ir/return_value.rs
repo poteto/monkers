@@ -1,10 +1,10 @@
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use super::IR;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IRReturnValue {
-    pub value: Box<IR>,
+    pub value: Rc<IR>,
 }
 
 impl fmt::Display for IRReturnValue {

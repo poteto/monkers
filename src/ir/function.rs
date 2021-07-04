@@ -5,7 +5,7 @@ use crate::{
     eval::Env,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IRFunction {
     pub parameters: Vec<Identifier>,
     pub body: BlockStatement,

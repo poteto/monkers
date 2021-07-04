@@ -5,8 +5,9 @@ use string_interner::symbol::SymbolU32;
 
 use crate::ir::IR;
 
+#[derive(Debug)]
 pub struct Env {
-    store: FnvHashMap<SymbolU32, IR>,
+    store: FnvHashMap<SymbolU32, Rc<IR>>,
     outer: Option<Rc<RefCell<Env>>>,
 }
 
@@ -24,9 +25,9 @@ impl Env {
         env
     }
 
-    pub fn get(&self, key: &SymbolU32) -> Option<IR> {
+    pub fn get(&self, key: &SymbolU32) -> Option<Rc<IR>> {
         match self.store.get(key) {
-            Some(value) => Some(value.clone()),
+            Some(value) => Some(Rc::clone(value)),
             None => match &self.outer {
                 Some(outer) => outer.borrow_mut().get(key),
                 None => None,
@@ -34,7 +35,7 @@ impl Env {
         }
     }
 
-    pub fn set(&mut self, key: &SymbolU32, value: IR) {
+    pub fn set(&mut self, key: &SymbolU32, value: Rc<IR>) {
         self.store.insert(*key, value);
     }
 }
