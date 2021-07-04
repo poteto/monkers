@@ -12,7 +12,7 @@ fn main() {
     }
     let interner = Rc::new(RefCell::new(StringInterner::default()));
     let env = Rc::new(RefCell::new(Env::new()));
-    let interpreter = Interpreter::new(env, Rc::clone(&interner));
+    let mut interpreter = Interpreter::new(env, Rc::clone(&interner));
     loop {
         let readline = rl.readline("🐒 >> ");
         match readline {

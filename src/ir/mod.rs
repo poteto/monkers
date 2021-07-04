@@ -1,9 +1,11 @@
 mod boolean;
+mod function;
 mod integer;
 mod null;
 mod return_value;
 
 pub use boolean::{IRBoolean, FALSE, TRUE};
+pub use function::IRFunction;
 pub use integer::IRInteger;
 pub use null::{IRNull, NULL};
 pub use return_value::IRReturnValue;
@@ -23,6 +25,7 @@ pub enum IR {
     Boolean(IRBoolean),
     Null(IRNull),
     ReturnValue(IRReturnValue),
+    Function(IRFunction),
 }
 
 impl fmt::Display for IR {
@@ -33,6 +36,7 @@ impl fmt::Display for IR {
             IR::Boolean(ir) => ir.fmt(f),
             IR::Null(ir) => ir.fmt(f),
             IR::ReturnValue(ir) => ir.fmt(f),
+            IR::Function(ir) => ir.fmt(f),
         }
     }
 }

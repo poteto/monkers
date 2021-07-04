@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRFunction, IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -24,7 +24,7 @@ impl Interpreter {
         Self { env, interner }
     }
 
-    pub fn eval(&self, program: &Program) -> Result<IR, EvalError> {
+    pub fn eval(&mut self, program: &Program) -> Result<IR, EvalError> {
         let statements = &program.statements;
         if statements.is_empty() {
             Ok(IR::Nothing)
@@ -33,7 +33,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_program(&self, statements: &Vec<Statement>) -> Result<IR, EvalError> {
+    fn eval_program(&mut self, statements: &Vec<Statement>) -> Result<IR, EvalError> {
         let mut result = Ok(IR::Nothing);
         for statement in statements {
             result = self.eval_statement(statement);
@@ -50,7 +50,7 @@ impl Interpreter {
         result
     }
 
-    fn eval_statement(&self, statement: &Statement) -> Result<IR, EvalError> {
+    fn eval_statement(&mut self, statement: &Statement) -> Result<IR, EvalError> {
         match statement {
             Statement::Let(statement) => {
                 let value = self.eval_expression(&statement.value)?;
@@ -68,7 +68,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_block_statement(&self, block_statement: &BlockStatement) -> Result<IR, EvalError> {
+    fn eval_block_statement(&mut self, block_statement: &BlockStatement) -> Result<IR, EvalError> {
         let mut result = Ok(IR::Nothing);
         for statement in &block_statement.statements {
             result = self.eval_statement(statement);
@@ -82,11 +82,11 @@ impl Interpreter {
         result
     }
 
-    fn eval_expression(&self, expression: &Expression) -> Result<IR, EvalError> {
+    fn eval_expression(&mut self, expression: &Expression) -> Result<IR, EvalError> {
         match expression {
             Expression::Identifier(Identifier(identifier_key)) => {
                 if let Some(value) = self.env.borrow_mut().get(&identifier_key) {
-                    Ok(value.clone())
+                    Ok(value)
                 } else {
                     let interner = self.interner.borrow_mut();
                     let identifier = interner
@@ -109,7 +109,32 @@ impl Interpreter {
                 self.eval_infix_expression(expression, (left, right))
             }
             Expression::If(expression) => self.eval_if_expression(expression),
-            expression => Err(EvalError::NotImplementedYet(expression.to_string())),
+            Expression::Function(expression) => Ok(IR::Function(IRFunction {
+                env: Rc::clone(&self.env),
+                body: expression.body.clone(),
+                parameters: expression.parameters.clone(),
+            })),
+            Expression::Call(expression) => {
+                if let Ok(IR::Function(function)) = self.eval_expression(&expression.function) {
+                    let mut env = Env::with_outer(Rc::clone(&function.env));
+                    let mut evaluated_args = Vec::new();
+                    for argument in &expression.arguments {
+                        evaluated_args.push(self.eval_expression(argument)?);
+                    }
+                    for (Identifier(identifier_key), evaluated_arg) in
+                        function.parameters.iter().zip(evaluated_args.iter())
+                    {
+                        env.set(identifier_key, evaluated_arg.clone())
+                    }
+                    self.env = Rc::new(RefCell::new(env));
+                    self.eval_block_statement(&function.body)
+                } else {
+                    Err(EvalError::TypeError(format!(
+                        "{} is not a function",
+                        expression
+                    )))
+                }
+            }
         }
     }
 
@@ -188,7 +213,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_if_expression(&self, expression: &IfExpression) -> Result<IR, EvalError> {
+    fn eval_if_expression(&mut self, expression: &IfExpression) -> Result<IR, EvalError> {
         let condition = self.eval_expression(&expression.condition)?;
         if self.is_truthy(condition) {
             self.eval_block_statement(&expression.consequence.as_ref().expect("1"))
@@ -234,7 +259,7 @@ mod tests {
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         let env = Rc::new(RefCell::new(Env::new()));
-        let interpreter = Interpreter::new(env, Rc::clone(&interner));
+        let mut interpreter = Interpreter::new(env, Rc::clone(&interner));
 
         for error in &program.errors {
             eprintln!("{}", error);
@@ -455,6 +480,33 @@ mod tests {
             ("let a = 5 * 5; a;", 25),
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ];
+
+        for (input, expected) in tests {
+            let ir = test_eval(input);
+            match ir {
+                Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected, value);
+                }
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_call_expressions() {
+        let tests = vec![
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
         ];
 
         for (input, expected) in tests {
