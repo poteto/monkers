@@ -92,9 +92,7 @@ impl Interpreter {
                     Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
                 }
             }
-            Expression::Integer(value) => Ok(Rc::new(IR::Integer(IRInteger {
-                value: *value,
-            }))),
+            Expression::Integer(value) => Ok(Rc::new(IR::Integer(IRInteger { value: *value }))),
             Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
             Expression::Prefix(expression) => {
                 let right = self.eval_expression(&expression.right)?;
@@ -113,10 +111,11 @@ impl Interpreter {
             }))),
             Expression::Call(expression) => {
                 let function = self.eval_expression(&expression.function)?;
-                let mut evaluated_args = Vec::new();
-                for argument in &expression.arguments {
-                    evaluated_args.push(self.eval_expression(argument)?);
-                }
+                let evaluated_args = &expression
+                    .arguments
+                    .iter()
+                    .map(|arg| self.eval_expression(arg))
+                    .collect::<Result<Vec<Rc<IR>>, _>>()?;
                 self.eval_call_expression(function, evaluated_args)
             }
         }
@@ -210,7 +209,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_call_expression(&mut self, function: Rc<IR>, arguments: Vec<Rc<IR>>) -> EvalResult {
+    fn eval_call_expression(&mut self, function: Rc<IR>, arguments: &Vec<Rc<IR>>) -> EvalResult {
         match &*function {
             IR::Function(ir_function) => {
                 let mut env = Env::with_outer(Rc::clone(&ir_function.env));
