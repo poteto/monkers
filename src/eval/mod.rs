@@ -121,7 +121,9 @@ impl Interpreter {
             Expression::String(string) => {
                 let interner = self.interner.borrow_mut();
                 let value = interner.resolve(string.value).unwrap();
-                Ok(Rc::new(IR::String(IRString { value: value.to_string() })))
+                Ok(Rc::new(IR::String(IRString {
+                    value: value.to_string(),
+                })))
             }
         }
     }
@@ -168,6 +170,17 @@ impl Interpreter {
                 Token::GreaterThan => Ok(self.get_interned_bool(left.value > right.value)),
                 Token::Equal => Ok(self.get_interned_bool(left.value == right.value)),
                 Token::NotEqual => Ok(self.get_interned_bool(left.value != right.value)),
+                token => Err(EvalError::UnknownOperator(format!(
+                    "{left} {operator} {right}",
+                    left = left,
+                    operator = token,
+                    right = right
+                ))),
+            },
+            (IR::String(left), IR::String(right)) => match &expression.token {
+                Token::Plus => Ok(Rc::new(IR::String(IRString {
+                    value: left.value.clone() + &right.value,
+                }))),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -478,6 +491,7 @@ mod tests {
                 "Unknown Operator: true + false",
             ),
             ("foobar;", "Unknown Identifier: foobar"),
+            ("\"Hello\" - \"World\"", "Unknown Operator: Hello - World"),
         ];
 
         for (input, expected) in tests {
