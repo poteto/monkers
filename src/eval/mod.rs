@@ -93,7 +93,7 @@ impl Interpreter {
                 }
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(IRInteger {
-                value: value.clone(),
+                value: *value,
             }))),
             Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
             Expression::Prefix(expression) => {
@@ -217,7 +217,7 @@ impl Interpreter {
                 for (Identifier(identifier_key), evaluated_arg) in
                     ir_function.parameters.iter().zip(arguments.iter())
                 {
-                    env.set(identifier_key, evaluated_arg.clone())
+                    env.set(identifier_key, Rc::clone(&evaluated_arg))
                 }
                 self.env = Rc::new(RefCell::new(env));
                 self.eval_block_statement(&ir_function.body)
