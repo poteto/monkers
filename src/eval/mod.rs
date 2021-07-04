@@ -118,6 +118,7 @@ impl Interpreter {
                     .collect::<Result<Vec<Rc<IR>>, _>>()?;
                 self.eval_call_expression(function, evaluated_args)
             }
+            Expression::String(string) => Err(EvalError::NotImplementedYet(string.to_string())),
         }
     }
 
