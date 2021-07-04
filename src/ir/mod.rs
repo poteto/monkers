@@ -3,12 +3,14 @@ mod function;
 mod integer;
 mod null;
 mod return_value;
+mod string;
 
 pub use boolean::{IRBoolean, FALSE, TRUE};
 pub use function::IRFunction;
 pub use integer::IRInteger;
 pub use null::{IRNull, NULL};
 pub use return_value::IRReturnValue;
+pub use string::IRString;
 
 use std::fmt;
 
@@ -26,6 +28,7 @@ pub enum IR {
     Null(IRNull),
     ReturnValue(IRReturnValue),
     Function(IRFunction),
+    String(IRString),
 }
 
 impl fmt::Display for IR {
@@ -37,6 +40,7 @@ impl fmt::Display for IR {
             IR::Null(ir) => ir.fmt(f),
             IR::ReturnValue(ir) => ir.fmt(f),
             IR::Function(ir) => ir.fmt(f),
+            IR::String(ir) => ir.fmt(f),
         }
     }
 }

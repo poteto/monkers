@@ -7,7 +7,7 @@ use crate::{
     ast::{
         BlockStatement, BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier,
         IfExpression, InfixExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement,
+        Statement, StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -239,7 +239,9 @@ impl<'a> Parser<'a> {
 
     fn parse_prefix(&mut self) -> Result<Expression, ParserError> {
         match &self.curr_token {
-            Token::Identifier(ident) => Ok(Expression::Identifier(Identifier(*ident))),
+            Token::Identifier(identifier_key) => {
+                Ok(Expression::Identifier(Identifier(*identifier_key)))
+            }
             Token::Integer(i) => Ok(Expression::Integer(*i)),
             Token::Boolean(_) => Ok(Expression::Boolean(BooleanExpression {
                 token: self.curr_token.clone(),
@@ -249,6 +251,10 @@ impl<'a> Parser<'a> {
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
+            Token::String(string_key) => Ok(Expression::String(StringLiteral {
+                token: self.curr_token.clone(),
+                value: *string_key,
+            })),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
@@ -337,10 +343,24 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::ast::Program;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
     use std::{cell::RefCell, rc::Rc};
     use string_interner::StringInterner;
+
+    fn test_parse(input: &str) -> Program {
+        let interner = Rc::new(RefCell::new(StringInterner::default()));
+        let lexer = Lexer::new(input, Rc::clone(&interner));
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
+
+        program
+    }
 
     #[test]
     fn it_parses_let_statements() {
@@ -351,14 +371,7 @@ mod tests {
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            if !program.errors.is_empty() {
-                eprintln!("{:?}", program.errors);
-            }
+            let program = test_parse(input);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
@@ -368,49 +381,35 @@ mod tests {
 
     #[test]
     fn it_parses_if_statements() {
-        let input = "if (x < y) { x } else { y }";
-        let expected_len = 1;
-        let expected = "if (Identifier(0) < Identifier(1)) Identifier(0) else Identifier(1)";
+        let tests = vec![(
+            "if (x < y) { x } else { y }",
+            "if (Identifier(0) < Identifier(1)) Identifier(0) else Identifier(1)",
+        )];
 
-        let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, Rc::clone(&interner));
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
 
-        for error in &program.errors {
-            eprintln!("{}", error);
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
         }
-
-        assert_eq!(
-            program.statements.len(),
-            expected_len,
-            "Expected {} statements",
-            expected_len
-        );
-        assert!(program.errors.is_empty());
-        assert_eq!(program.to_string(), expected);
     }
 
     #[test]
     fn it_handles_parser_errors() {
-        let input = r#"let x 5;
-let = 10;
-let 838383;"#;
+        let input = r#"
+        let x 5;
+        let = 10;
+        let 838383;
+        "#;
         let expected = vec![
-            "[Row: 1, Col: 8] Expected next character to be `=`, got `5` instead",
-            "[Row: 2, Col: 6] Expected identifier to follow `let`, got `=` instead",
+            "[Row: 2, Col: 16] Expected next character to be `=`, got `5` instead",
+            "[Row: 3, Col: 14] Expected identifier to follow `let`, got `=` instead",
             "Unhandled prefix operator: `=`",
-            "[Row: 3, Col: 11] Expected identifier to follow `let`, got `838383` instead",
+            "[Row: 4, Col: 19] Expected identifier to follow `let`, got `838383` instead",
         ];
-        let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, Rc::clone(&interner));
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
 
-        for error in &program.errors {
-            eprintln!("{}", error);
-        }
-
+        let program = test_parse(input);
         for (i, expect) in expected.iter().enumerate() {
             assert_eq!(expect, &program.errors[i].to_string());
         }
@@ -428,14 +427,7 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
+            let program = test_parse(input);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
@@ -445,57 +437,32 @@ let 838383;"#;
 
     #[test]
     fn it_parses_numbers() {
-        let input = "5;";
-        let expected = "5";
-        let expected_len = 1;
+        let tests = vec![("5;", "5")];
 
-        let interner = Rc::new(RefCell::new(StringInterner::default()));
-        let lexer = Lexer::new(input, Rc::clone(&interner));
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
 
-        for error in &program.errors {
-            eprintln!("{}", error);
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
         }
-
-        assert_eq!(
-            program.statements.len(),
-            expected_len,
-            "Expected {} statements",
-            expected_len
-        );
-        assert!(program.errors.is_empty());
-        assert_eq!(program.to_string(), expected);
     }
 
     #[test]
     fn it_parses_valid_prefix_expressions() {
         let tests = vec![
-            ("!5;", "!", "(!5)"),
-            ("-15;", "-", "(-15)"),
-            ("!true", "!", "(!true)"),
-            ("!false", "!", "(!false)"),
+            ("!5;", "(!5)"),
+            ("-15;", "(-15)"),
+            ("!true", "(!true)"),
+            ("!false", "(!false)"),
         ];
 
-        for (input, expected_operator, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
 
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            assert_eq!(program.statements.len(), 1);
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
-
-            let statement = program.statements.first().unwrap();
-            if let Some(statement_operator) = statement.token() {
-                assert_eq!(expected_operator, statement_operator.to_string());
-            }
-
-            assert_eq!(expected_string, statement.to_string());
         }
     }
 
@@ -511,14 +478,7 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
+            let program = test_parse(input);
 
             assert!(program.errors.len() == 1);
             assert_eq!(expected_string, program.errors.first().unwrap().to_string());
@@ -528,38 +488,25 @@ let 838383;"#;
     #[test]
     fn it_parses_valid_infix_expressions() {
         let tests = vec![
-            ("5 + 5;", "+", "(5 + 5)"),
-            ("5 - 5;", "-", "(5 - 5)"),
-            ("5 * 5;", "*", "(5 * 5)"),
-            ("5 / 5;", "/", "(5 / 5)"),
-            ("5 > 5;", ">", "(5 > 5)"),
-            ("5 < 5;", "<", "(5 < 5)"),
-            ("5 == 5;", "==", "(5 == 5)"),
-            ("5 != 5;", "!=", "(5 != 5)"),
-            ("true == true;", "==", "(true == true)"),
-            ("true != true;", "!=", "(true != true)"),
-            ("false == false;", "==", "(false == false)"),
+            ("5 + 5;", "(5 + 5)"),
+            ("5 - 5;", "(5 - 5)"),
+            ("5 * 5;", "(5 * 5)"),
+            ("5 / 5;", "(5 / 5)"),
+            ("5 > 5;", "(5 > 5)"),
+            ("5 < 5;", "(5 < 5)"),
+            ("5 == 5;", "(5 == 5)"),
+            ("5 != 5;", "(5 != 5)"),
+            ("true == true;", "(true == true)"),
+            ("true != true;", "(true != true)"),
+            ("false == false;", "(false == false)"),
         ];
 
-        for (input, expected_operator, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
 
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
-
-            assert_eq!(program.statements.len(), 1);
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
-
-            let statement = program.statements.first().unwrap();
-            if let Some(statement_operator) = statement.token() {
-                assert_eq!(expected_operator, statement_operator.to_string());
-            }
-
-            assert_eq!(expected_string, statement.to_string());
         }
     }
 
@@ -593,14 +540,7 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
+            let program = test_parse(input);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
@@ -624,14 +564,7 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
-
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
+            let program = test_parse(input);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
@@ -655,14 +588,22 @@ let 838383;"#;
         ];
 
         for (input, expected_string) in tests {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(input, Rc::clone(&interner));
-            let mut parser = Parser::new(lexer);
-            let program = parser.parse_program();
+            let program = test_parse(input);
 
-            for error in &program.errors {
-                eprintln!("{}", error);
-            }
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_string_literals() {
+        let tests = vec![("\"hello world\";", "String(0)")];
+
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
+
+            println!("{:#?}", program);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());

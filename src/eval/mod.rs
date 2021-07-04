@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRInteger, IRReturnValue, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRFunction, IRInteger, IRReturnValue, IRString, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -118,6 +118,13 @@ impl Interpreter {
                     .collect::<Result<Vec<Rc<IR>>, _>>()?;
                 self.eval_call_expression(function, evaluated_args)
             }
+            Expression::String(string) => {
+                let interner = self.interner.borrow_mut();
+                let value = interner.resolve(string.value).unwrap();
+                Ok(Rc::new(IR::String(IRString {
+                    value: value.to_string(),
+                })))
+            }
         }
     }
 
@@ -163,6 +170,17 @@ impl Interpreter {
                 Token::GreaterThan => Ok(self.get_interned_bool(left.value > right.value)),
                 Token::Equal => Ok(self.get_interned_bool(left.value == right.value)),
                 Token::NotEqual => Ok(self.get_interned_bool(left.value != right.value)),
+                token => Err(EvalError::UnknownOperator(format!(
+                    "{left} {operator} {right}",
+                    left = left,
+                    operator = token,
+                    right = right
+                ))),
+            },
+            (IR::String(left), IR::String(right)) => match &expression.token {
+                Token::Plus => Ok(Rc::new(IR::String(IRString {
+                    value: left.value.clone() + &right.value,
+                }))),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -248,7 +266,7 @@ mod tests {
     use string_interner::StringInterner;
 
     use crate::eval::{Env, Interpreter};
-    use crate::ir::{IRBoolean, IRInteger, IR};
+    use crate::ir::{IRBoolean, IRInteger, IRString, IR};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -473,6 +491,7 @@ mod tests {
                 "Unknown Operator: true + false",
             ),
             ("foobar;", "Unknown Identifier: foobar"),
+            ("\"Hello\" - \"World\"", "Unknown Operator: Hello - World"),
         ];
 
         for (input, expected) in tests {
@@ -565,6 +584,28 @@ mod tests {
                 Ok(ir) => match &*ir {
                     IR::Integer(IRInteger { value }) => {
                         assert_eq!(&expected, value);
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_string_literals() {
+        let tests = vec![("\"Hello World!\"", "Hello World!")];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::String(IRString { value }) => {
+                        assert_eq!(expected, value);
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);

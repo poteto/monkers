@@ -115,30 +115,21 @@ pub enum Expression {
     If(IfExpression),
     Function(FunctionLiteral),
     Call(CallExpression),
+    String(StringLiteral),
 }
 
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Expression::Identifier(ident) => ident.fmt(f),
-            Expression::Integer(i) => i.fmt(f),
-            Expression::Prefix(expression) => write!(
-                f,
-                "({operator}{right})",
-                operator = expression.token,
-                right = expression.right
-            ),
-            Expression::Infix(expression) => write!(
-                f,
-                "({left} {operator} {right})",
-                left = expression.left,
-                operator = expression.token,
-                right = expression.right
-            ),
+            Expression::Identifier(identifier) => identifier.fmt(f),
+            Expression::Integer(integer) => integer.fmt(f),
+            Expression::Prefix(expression) => expression.fmt(f),
+            Expression::Infix(expression) => expression.fmt(f),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
             Expression::If(expression) => expression.fmt(f),
             Expression::Function(expression) => expression.fmt(f),
             Expression::Call(expression) => expression.fmt(f),
+            Expression::String(expression) => expression.fmt(f),
         }
     }
 }
@@ -158,11 +149,34 @@ pub struct PrefixExpression {
     pub right: Box<Expression>,
 }
 
+impl fmt::Display for PrefixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "({operator}{right})",
+            operator = self.token,
+            right = self.right
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct InfixExpression {
     pub token: Token,
     pub left: Box<Expression>,
     pub right: Box<Expression>,
+}
+
+impl fmt::Display for InfixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "({left} {operator} {right})",
+            left = self.left,
+            operator = self.token,
+            right = self.right
+        )
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -241,5 +255,17 @@ impl fmt::Display for CallExpression {
                 .collect::<Vec<String>>()
                 .join(", ")
         )
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: SymbolU32,
+}
+
+impl fmt::Display for StringLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "String({:?})", self.value.to_usize())
     }
 }

@@ -69,6 +69,15 @@ impl<'a> Lexer<'a> {
         &self.input[position..self.position]
     }
 
+    fn read_string(&mut self) -> &str {
+        let position = self.position + 1;
+        self.read_char();
+        while self.ch != '"' && self.ch != '0' {
+            self.read_char();
+        }
+        &self.input[position..self.position]
+    }
+
     fn read_number(&mut self) -> &str {
         let position = self.position;
         while self.ch.is_ascii_digit() {
@@ -116,6 +125,12 @@ impl<'a> Lexer<'a> {
             ')' => token = Token::Rparen,
             '{' => token = Token::Lbrace,
             '}' => token = Token::Rbrace,
+
+            '"' => {
+                let interner = Rc::clone(&self.interner);
+                let literal = self.read_string();
+                token = Token::String(interner.borrow_mut().get_or_intern(literal));
+            }
 
             _ if self.ch.is_ascii_alphabetic() => {
                 let interner = Rc::clone(&self.interner);
@@ -201,25 +216,29 @@ mod tests {
 
     #[test]
     fn it_lexes_additional_operators_and_keywords() {
-        let input = r#"let five = 5;
-let ten = 10;
+        let input = r#"
+        let five = 5;
+        let ten = 10;
 
-let add = fn(x, y) {
-    x + y;
-};
+        let add = fn(x, y) {
+            x + y;
+        };
 
-let result = add(five, ten);
-!-/*5;
-5 < 10 > 5;
+        let result = add(five, ten);
+        !-/*5;
+        5 < 10 > 5;
 
-if (5 < 10) {
-    return true;
-} else {
-    return false;
-}
+        if (5 < 10) {
+            return true;
+        } else {
+            return false;
+        }
 
-10 == 10;
-10 != 9;"#;
+        10 == 10;
+        10 != 9;
+        "foobar";
+        "foo bar";
+        "#;
         let interner = Rc::new(RefCell::new(StringInterner::default()));
         let test_interner = Rc::clone(&interner);
         let mut test_interner = test_interner.borrow_mut();
@@ -297,6 +316,10 @@ if (5 < 10) {
             Token::Integer(10),
             Token::NotEqual,
             Token::Integer(9),
+            Token::Semicolon,
+            Token::String(test_interner.get_or_intern("foobar")),
+            Token::Semicolon,
+            Token::String(test_interner.get_or_intern("foo bar")),
             Token::Semicolon,
             Token::EndOfFile,
         ];

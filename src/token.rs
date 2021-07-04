@@ -12,7 +12,7 @@ pub enum Token {
 
     Identifier(SymbolU32),
     Integer(IntegerSize),
-    String(String),
+    String(SymbolU32),
     Boolean(bool),
 
     Assign,
@@ -55,7 +55,7 @@ impl fmt::Display for Token {
 
             Token::Identifier(s) => write!(f, "Identifier({:?})", s.to_usize()),
             Token::Integer(i) => i.fmt(f),
-            Token::String(s) => s.fmt(f),
+            Token::String(s) => write!(f, "String({:?})", s.to_usize()),
             Token::Boolean(b) => write!(f, "Boolean({})", b),
 
             Token::Assign => write!(f, "="),
