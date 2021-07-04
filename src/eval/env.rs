@@ -29,8 +29,8 @@ impl Env {
             Some(value) => Some(value.clone()),
             None => match &self.outer {
                 Some(outer) => outer.borrow_mut().get(key),
-                None => None
-            }
+                None => None,
+            },
         }
     }
 

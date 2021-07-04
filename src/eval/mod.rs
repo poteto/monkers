@@ -4,8 +4,8 @@ mod error;
 use string_interner::StringInterner;
 
 use crate::ast::{
-    BlockStatement, Expression, Identifier, IfExpression, InfixExpression, PrefixExpression,
-    Program, Statement,
+    BlockStatement, CallExpression, Expression, Identifier, IfExpression, InfixExpression,
+    PrefixExpression, Program, Statement,
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
@@ -114,27 +114,7 @@ impl Interpreter {
                 body: expression.body.clone(),
                 parameters: expression.parameters.clone(),
             })),
-            Expression::Call(expression) => {
-                if let Ok(IR::Function(function)) = self.eval_expression(&expression.function) {
-                    let mut env = Env::with_outer(Rc::clone(&function.env));
-                    let mut evaluated_args = Vec::new();
-                    for argument in &expression.arguments {
-                        evaluated_args.push(self.eval_expression(argument)?);
-                    }
-                    for (Identifier(identifier_key), evaluated_arg) in
-                        function.parameters.iter().zip(evaluated_args.iter())
-                    {
-                        env.set(identifier_key, evaluated_arg.clone())
-                    }
-                    self.env = Rc::new(RefCell::new(env));
-                    self.eval_block_statement(&function.body)
-                } else {
-                    Err(EvalError::TypeError(format!(
-                        "{} is not a function",
-                        expression
-                    )))
-                }
-            }
+            Expression::Call(expression) => self.eval_call_expression(expression),
         }
     }
 
@@ -221,6 +201,28 @@ impl Interpreter {
             self.eval_block_statement(alternative)
         } else {
             Ok(IR::Null(NULL))
+        }
+    }
+
+    fn eval_call_expression(&mut self, expression: &CallExpression) -> Result<IR, EvalError> {
+        if let Ok(IR::Function(function)) = self.eval_expression(&expression.function) {
+            let mut env = Env::with_outer(Rc::clone(&function.env));
+            let mut evaluated_args = Vec::new();
+            for argument in &expression.arguments {
+                evaluated_args.push(self.eval_expression(argument)?);
+            }
+            for (Identifier(identifier_key), evaluated_arg) in
+                function.parameters.iter().zip(evaluated_args.iter())
+            {
+                env.set(identifier_key, evaluated_arg.clone())
+            }
+            self.env = Rc::new(RefCell::new(env));
+            self.eval_block_statement(&function.body)
+        } else {
+            Err(EvalError::TypeError(format!(
+                "{} is not a function",
+                expression
+            )))
         }
     }
 
@@ -410,12 +412,14 @@ mod tests {
             ("return 2 * 5; 9;", 10),
             ("9; return 2 * 5; 9;", 10),
             (
-                r#"if (10 > 1) {
-    if (10 > 1) {
-        return 10;
-    }
-    return 1;
-}"#,
+                r#"
+                if (10 > 1) {
+                    if (10 > 1) {
+                        return 10;
+                    }
+                    return 1;
+                }
+                "#,
                 10,
             ),
         ];
@@ -449,12 +453,14 @@ mod tests {
                 "Unknown Operator: true + false",
             ),
             (
-                r#"if (10 > 1) {
-    if (10 > 1) {
-        return true + false;
-    }
-    return 1;
-}"#,
+                r#"
+                if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }
+                "#,
                 "Unknown Operator: true + false",
             ),
             ("foobar;", "Unknown Identifier: foobar"),
@@ -508,6 +514,35 @@ mod tests {
             ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
             ("fn(x) { x; }(5)", 5),
         ];
+
+        for (input, expected) in tests {
+            let ir = test_eval(input);
+            match ir {
+                Ok(IR::Integer(IRInteger { value })) => {
+                    assert_eq!(expected, value);
+                }
+                Ok(ir_object) => {
+                    panic!("Didn't expect {}", ir_object);
+                }
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_closures() {
+        let tests = vec![(
+            r#"
+            let newAdder = fn(x) {
+                fn(y) { x + y };
+            };
+            let addTwo = newAdder(2);
+            addTwo(2);
+            "#,
+            4,
+        )];
 
         for (input, expected) in tests {
             let ir = test_eval(input);
