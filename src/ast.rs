@@ -125,14 +125,14 @@ impl fmt::Display for Expression {
             Expression::Prefix(expression) => write!(
                 f,
                 "({operator}{right})",
-                operator = expression.operator,
+                operator = expression.token,
                 right = expression.right
             ),
             Expression::Infix(expression) => write!(
                 f,
                 "({left} {operator} {right})",
                 left = expression.left,
-                operator = expression.operator,
+                operator = expression.token,
                 right = expression.right
             ),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
@@ -155,7 +155,6 @@ impl fmt::Display for Identifier {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrefixExpression {
     pub token: Token,
-    pub operator: String,
     pub right: Box<Expression>,
 }
 
@@ -163,7 +162,6 @@ pub struct PrefixExpression {
 pub struct InfixExpression {
     pub token: Token,
     pub left: Box<Expression>,
-    pub operator: String,
     pub right: Box<Expression>,
 }
 

@@ -272,23 +272,19 @@ impl<'a> Parser<'a> {
 
     fn parse_prefix_expression(&mut self) -> Result<Expression, ParserError> {
         let token = self.curr_token.clone();
-        let operator = token.to_string();
         self.next_token();
         Ok(Expression::Prefix(PrefixExpression {
             token,
-            operator,
             right: Box::new(self.parse_expression(Precedence::Prefix)?),
         }))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
         let token = self.curr_token.clone();
-        let operator = token.to_string();
         let precedence = precedence_for(&token);
         self.next_token();
         Ok(Expression::Infix(InfixExpression {
             token,
-            operator,
             left: Box::new(left),
             right: Box::new(self.parse_expression(precedence)?),
         }))
