@@ -183,8 +183,7 @@ pub struct IfExpression {
 
 impl fmt::Display for IfExpression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let (condition, Some(consequence)) = (self.condition.as_ref(), self.consequence.as_ref())
-        {
+        if let (condition, Some(consequence)) = (&self.condition, &self.consequence) {
             write!(
                 f,
                 "{token} {cond} {cons}",
