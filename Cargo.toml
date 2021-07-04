@@ -10,3 +10,8 @@ edition = "2018"
 rustyline = "8.2.0"
 string-interner = "0.12.2"
 fnv = "1.0.7"
+
+[[bin]]
+name = "monkers"
+test = false
+bench = false
