@@ -9,12 +9,15 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRReturnValue, IRString, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRFunction, IRReturnValue, IRString, IR, NULL};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
 
 type EvalResult = Result<Rc<IR>, EvalError>;
+
+const TRUE: IR = IR::Boolean(true);
+const FALSE: IR = IR::Boolean(false);
 
 pub struct Interpreter {
     interner: Rc<RefCell<StringInterner>>,
@@ -131,10 +134,10 @@ impl Interpreter {
     fn eval_prefix_expression(&self, expression: &PrefixExpression, right: Rc<IR>) -> EvalResult {
         match &expression.token {
             Token::Bang => match *right {
-                IR::Boolean(TRUE) => Ok(Rc::new(IR::Boolean(FALSE))),
-                IR::Boolean(FALSE) => Ok(Rc::new(IR::Boolean(TRUE))),
-                IR::Null(NULL) => Ok(Rc::new(IR::Boolean(TRUE))),
-                _ => Ok(Rc::new(IR::Boolean(FALSE))),
+                IR::Boolean(true) => Ok(Rc::new(FALSE)),
+                IR::Boolean(false) => Ok(Rc::new(TRUE)),
+                IR::Null(NULL) => Ok(Rc::new(TRUE)),
+                _ => Ok(Rc::new(FALSE)),
             },
             Token::Minus => match &*right {
                 IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
@@ -235,16 +238,16 @@ impl Interpreter {
 
     fn get_interned_bool(&self, native_value: bool) -> Rc<IR> {
         match native_value {
-            true => Rc::new(IR::Boolean(TRUE)),
-            false => Rc::new(IR::Boolean(FALSE)),
+            true => Rc::new(TRUE),
+            false => Rc::new(FALSE),
         }
     }
 
     fn is_truthy(&self, ir: Rc<IR>) -> bool {
         match *ir {
             IR::Null(_) => false,
-            IR::Boolean(FALSE) => false,
-            IR::Boolean(TRUE) => true,
+            IR::Boolean(false) => false,
+            IR::Boolean(true) => true,
             _ => true,
         }
     }
@@ -256,7 +259,7 @@ mod tests {
     use string_interner::StringInterner;
 
     use crate::eval::{Env, Interpreter};
-    use crate::ir::{IRBoolean, IRString, IR};
+    use crate::ir::{IRString, IR};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -343,7 +346,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Boolean(IRBoolean { value }) => {
+                    IR::Boolean(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
@@ -372,7 +375,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Boolean(IRBoolean { value }) => {
+                    IR::Boolean(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
