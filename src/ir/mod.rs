@@ -1,12 +1,10 @@
 mod function;
-mod return_value;
 mod string;
 
 pub use function::IRFunction;
-pub use return_value::IRReturnValue;
 pub use string::IRString;
 
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 use crate::token::IntegerSize;
 
@@ -16,7 +14,7 @@ pub enum IR {
     Integer(IntegerSize),
     Boolean(bool),
     Null,
-    ReturnValue(IRReturnValue),
+    ReturnValue(Rc<IR>),
     Function(IRFunction),
     String(IRString),
 }

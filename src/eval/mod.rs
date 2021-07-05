@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRReturnValue, IRString, IR};
+use crate::ir::{IRFunction, IRString, IR};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -44,7 +44,7 @@ impl Interpreter {
         for statement in statements {
             let value = self.eval_statement(statement)?;
             match &*value {
-                IR::ReturnValue(return_value) => return Ok(Rc::clone(&return_value.value)),
+                IR::ReturnValue(value) => return Ok(Rc::clone(&value)),
                 _ => result = value,
             };
         }
@@ -62,9 +62,7 @@ impl Interpreter {
             }
             Statement::Return(statement) => {
                 let value = self.eval_expression(&statement.return_value)?;
-                Ok(Rc::new(IR::ReturnValue(IRReturnValue {
-                    value: Rc::clone(&value),
-                })))
+                Ok(Rc::new(IR::ReturnValue(Rc::clone(&value))))
             }
             Statement::Expression(expression) => self.eval_expression(expression),
             Statement::Block(statement) => self.eval_program(&statement.statements),
