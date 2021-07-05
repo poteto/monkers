@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRInteger, IRReturnValue, IRString, FALSE, IR, NULL, TRUE};
+use crate::ir::{IRFunction, IRReturnValue, IRString, FALSE, IR, NULL, TRUE};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -92,7 +92,7 @@ impl Interpreter {
                     Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
                 }
             }
-            Expression::Integer(value) => Ok(Rc::new(IR::Integer(IRInteger { value: *value }))),
+            Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
             Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
             Expression::Prefix(expression) => {
                 let right = self.eval_expression(&expression.right)?;
@@ -137,9 +137,7 @@ impl Interpreter {
                 _ => Ok(Rc::new(IR::Boolean(FALSE))),
             },
             Token::Minus => match &*right {
-                IR::Integer(integer) => Ok(Rc::new(IR::Integer(IRInteger {
-                    value: -integer.value,
-                }))),
+                IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
                 _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
             },
             token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
@@ -154,22 +152,14 @@ impl Interpreter {
     ) -> EvalResult {
         match (&*left, &*right) {
             (IR::Integer(left), IR::Integer(right)) => match &expression.token {
-                Token::Plus => Ok(Rc::new(IR::Integer(IRInteger {
-                    value: left.value + right.value,
-                }))),
-                Token::Minus => Ok(Rc::new(IR::Integer(IRInteger {
-                    value: left.value - right.value,
-                }))),
-                Token::Asterisk => Ok(Rc::new(IR::Integer(IRInteger {
-                    value: left.value * right.value,
-                }))),
-                Token::Slash => Ok(Rc::new(IR::Integer(IRInteger {
-                    value: left.value / right.value,
-                }))),
-                Token::LessThan => Ok(self.get_interned_bool(left.value < right.value)),
-                Token::GreaterThan => Ok(self.get_interned_bool(left.value > right.value)),
-                Token::Equal => Ok(self.get_interned_bool(left.value == right.value)),
-                Token::NotEqual => Ok(self.get_interned_bool(left.value != right.value)),
+                Token::Plus => Ok(Rc::new(IR::Integer(left + right))),
+                Token::Minus => Ok(Rc::new(IR::Integer(left - right))),
+                Token::Asterisk => Ok(Rc::new(IR::Integer(left * right))),
+                Token::Slash => Ok(Rc::new(IR::Integer(left / right))),
+                Token::LessThan => Ok(self.get_interned_bool(left < right)),
+                Token::GreaterThan => Ok(self.get_interned_bool(left > right)),
+                Token::Equal => Ok(self.get_interned_bool(left == right)),
+                Token::NotEqual => Ok(self.get_interned_bool(left != right)),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -266,7 +256,7 @@ mod tests {
     use string_interner::StringInterner;
 
     use crate::eval::{Env, Interpreter};
-    use crate::ir::{IRBoolean, IRInteger, IRString, IR};
+    use crate::ir::{IRBoolean, IRString, IR};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -311,7 +301,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
@@ -412,7 +402,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected.unwrap(), value);
                     }
                     IR::Null(_) => {
@@ -453,7 +443,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
@@ -522,7 +512,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
@@ -551,7 +541,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
@@ -582,7 +572,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::Integer(IRInteger { value }) => {
+                    IR::Integer(value) => {
                         assert_eq!(&expected, value);
                     }
                     ir_object => {
