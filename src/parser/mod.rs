@@ -95,7 +95,6 @@ impl<'a> Parser<'a> {
             self.expect_peek(Token::Assign)?;
             self.next_token();
             let statement = Statement::Let(
-                Token::Let,
                 Identifier(ident),
                 self.parse_expression(Precedence::Lowest)?,
             );
@@ -114,8 +113,7 @@ impl<'a> Parser<'a> {
 
     fn parse_return_statement(&mut self) -> Result<Statement, ParserError> {
         self.next_token();
-        let statement =
-            Statement::Return(Token::Return, self.parse_expression(Precedence::Lowest)?);
+        let statement = Statement::Return(self.parse_expression(Precedence::Lowest)?);
         if self.peek_token == Token::Semicolon {
             self.next_token();
         }
@@ -143,7 +141,7 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(Statement::Block(Token::Lbrace, Rc::new(statements)))
+        Ok(Statement::Block(Rc::new(statements)))
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -185,7 +183,6 @@ impl<'a> Parser<'a> {
                 }
             }
             Ok(Expression::If(
-                Token::If,
                 Box::new(condition),
                 consequence,
                 alternative,
@@ -200,11 +197,7 @@ impl<'a> Parser<'a> {
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
         let body = Rc::new(self.parse_block_statement()?);
-        Ok(Expression::Function(
-            Token::Function,
-            Rc::new(parameters),
-            body,
-        ))
+        Ok(Expression::Function(Rc::new(parameters), body))
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {
@@ -235,9 +228,7 @@ impl<'a> Parser<'a> {
                 Ok(Expression::Identifier(Identifier(*identifier_key)))
             }
             Token::Integer(i) => Ok(Expression::Integer(*i)),
-            Token::Boolean(value) => {
-                Ok(Expression::Boolean(Token::Boolean(*value), *value == true))
-            }
+            Token::Boolean(value) => Ok(Expression::Boolean(*value == true)),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
@@ -265,20 +256,20 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_prefix_expression(&mut self) -> Result<Expression, ParserError> {
-        let token = self.curr_token.clone();
+        let operator = self.curr_token.clone();
         self.next_token();
         Ok(Expression::Prefix(
-            token,
+            operator,
             Box::new(self.parse_expression(Precedence::Prefix)?),
         ))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
-        let token = self.curr_token.clone();
-        let precedence = precedence_for(&token);
+        let operator = self.curr_token.clone();
+        let precedence = precedence_for(&operator);
         self.next_token();
         Ok(Expression::Infix(
-            token,
+            operator,
             Box::new(left),
             Box::new(self.parse_expression(precedence)?),
         ))
@@ -286,7 +277,6 @@ impl<'a> Parser<'a> {
 
     fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
         Ok(Expression::Call(
-            Token::Lparen,
             Box::new(left),
             self.parse_call_arguments()?,
         ))

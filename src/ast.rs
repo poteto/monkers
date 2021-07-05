@@ -33,26 +33,26 @@ impl fmt::Display for Program {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Expression(Expression),
-    Let(Token, Identifier, Expression),
-    Return(Token, Expression),
-    Block(Token, Rc<Vec<Statement>>),
+    Let(Identifier, Expression),
+    Return(Expression),
+    Block(Rc<Vec<Statement>>),
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Statement::Expression(expression) => expression.fmt(f),
-            Statement::Let(token, name, value) => write!(
+            Statement::Let(name, value) => write!(
                 f,
                 "{token} {name} = {value};",
-                token = token,
+                token = Token::Let,
                 name = name,
                 value = value,
             ),
-            Statement::Return(token, value) => {
-                write!(f, "{token} {value};", token = token, value = value)
+            Statement::Return(value) => {
+                write!(f, "{token} {value};", token = Token::Return, value = value)
             }
-            Statement::Block(_, statements) => {
+            Statement::Block(statements) => {
                 statements
                     .iter()
                     .map(|statement| statement.fmt(f))
@@ -68,27 +68,28 @@ pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
     String(SymbolU32),
-    Boolean(Token, bool),
+    Boolean(bool),
 
-    Prefix(Token, Box<Expression>),
+    Prefix(
+        Token,           // Operator
+        Box<Expression>, // Right
+    ),
     Infix(
-        Token,
+        Token,           // Operator
         Box<Expression>, // Left
         Box<Expression>, // Right
     ),
+
     If(
-        Token,
         Box<Expression>,        // Condition
         Option<Box<Statement>>, // Consequence
         Option<Box<Statement>>, // Alternative
     ),
     Function(
-        Token,
         Rc<Vec<Identifier>>, // Parameters
         Rc<Statement>,       // Body
     ),
     Call(
-        Token,
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
     ),
@@ -102,7 +103,7 @@ impl fmt::Display for Expression {
             Expression::String(string_key) => {
                 write!(f, "String({:?})", string_key.to_usize())
             }
-            Expression::Boolean(_, value) => value.fmt(f),
+            Expression::Boolean(value) => value.fmt(f),
             Expression::Prefix(token, right) => {
                 write!(f, "({operator}{right})", operator = token, right = right)
             }
@@ -113,12 +114,12 @@ impl fmt::Display for Expression {
                 operator = operator,
                 right = right
             ),
-            Expression::If(token, condition, consequence, alternative) => {
+            Expression::If(condition, consequence, alternative) => {
                 if let (condition, Some(consequence)) = (condition, consequence) {
                     write!(
                         f,
                         "{token} {cond} {cons}",
-                        token = token,
+                        token = Token::If,
                         cond = condition,
                         cons = consequence
                     )?;
@@ -128,10 +129,10 @@ impl fmt::Display for Expression {
                 }
                 Ok(())
             }
-            Expression::Function(token, parameters, body) => write!(
+            Expression::Function(parameters, body) => write!(
                 f,
                 "{token}({params}) {{{body}}}",
-                token = token,
+                token = Token::Function,
                 params = parameters
                     .iter()
                     .map(|ident| ident.to_string())
@@ -139,7 +140,7 @@ impl fmt::Display for Expression {
                     .join(", "),
                 body = body
             ),
-            Expression::Call(_, function, arguments) => write!(
+            Expression::Call(function, arguments) => write!(
                 f,
                 "{func}({args})",
                 func = function,

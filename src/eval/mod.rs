@@ -53,23 +53,23 @@ impl Interpreter {
 
     fn eval_statement(&mut self, statement: &Statement) -> EvalResult {
         match statement {
-            Statement::Let(_, name, value) => {
+            Statement::Let(name, value) => {
                 let value = self.eval_expression(value)?;
                 self.env.borrow_mut().set(&name.0, Rc::clone(&value));
                 Ok(value)
             }
-            Statement::Return(_, value) => {
+            Statement::Return(value) => {
                 let value = self.eval_expression(value)?;
                 Ok(Rc::new(IR::ReturnValue(Rc::clone(&value))))
             }
             Statement::Expression(expression) => self.eval_expression(expression),
-            Statement::Block(_, statements) => self.eval_program(statements),
+            Statement::Block(statements) => self.eval_program(statements),
         }
     }
 
     fn eval_block_statement(&mut self, block_statement: &Statement) -> EvalResult {
         let mut result = Rc::new(IR::Nothing);
-        if let Statement::Block(_, statements) = block_statement {
+        if let Statement::Block(statements) = block_statement {
             for statement in statements.iter() {
                 let value = self.eval_statement(statement)?;
                 match &*value {
@@ -96,7 +96,7 @@ impl Interpreter {
                 }
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
-            Expression::Boolean(_, value) => Ok(self.get_interned_bool(value)),
+            Expression::Boolean(value) => Ok(self.get_interned_bool(value)),
             Expression::Prefix(operator, right) => {
                 let right = self.eval_expression(&right)?;
                 self.eval_prefix_expression(operator, right)
@@ -106,15 +106,15 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_infix_expression(operator, left, right)
             }
-            Expression::If(_, condition, consequence, alternative) => {
+            Expression::If(condition, consequence, alternative) => {
                 self.eval_if_expression(condition, consequence, alternative)
             }
-            Expression::Function(_, parameters, body) => Ok(Rc::new(IR::Function(
+            Expression::Function(parameters, body) => Ok(Rc::new(IR::Function(
                 Rc::clone(parameters),
                 Rc::clone(body),
                 Rc::clone(&self.env),
             ))),
-            Expression::Call(_, function, arguments) => {
+            Expression::Call(function, arguments) => {
                 let function = self.eval_expression(function)?;
                 let evaluated_args = arguments
                     .iter()
