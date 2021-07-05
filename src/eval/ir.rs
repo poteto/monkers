@@ -13,7 +13,11 @@ pub enum IR {
     Boolean(bool),
     Null,
     ReturnValue(Rc<IR>),
-    Function(Vec<Identifier>, Rc<Statement>, Rc<RefCell<Env>>),
+    Function(
+        Rc<Vec<Identifier>>, // Paramters
+        Rc<Statement>,       // Body
+        Rc<RefCell<Env>>,    // Env
+    ),
     String(String),
 }
 

@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(Statement::Block(Token::Lbrace, statements))
+        Ok(Statement::Block(Token::Lbrace, Rc::new(statements)))
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -200,7 +200,11 @@ impl<'a> Parser<'a> {
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
         let body = Rc::new(self.parse_block_statement()?);
-        Ok(Expression::Function(Token::Function, parameters, body))
+        Ok(Expression::Function(
+            Token::Function,
+            Rc::new(parameters),
+            body,
+        ))
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {

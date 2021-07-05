@@ -35,7 +35,7 @@ pub enum Statement {
     Expression(Expression),
     Let(Token, Identifier, Expression),
     Return(Token, Expression),
-    Block(Token, Vec<Statement>),
+    Block(Token, Rc<Vec<Statement>>),
 }
 
 impl fmt::Display for Statement {
@@ -53,9 +53,10 @@ impl fmt::Display for Statement {
                 write!(f, "{token} {value};", token = token, value = value)
             }
             Statement::Block(_, statements) => {
-                for statement in statements {
-                    statement.fmt(f)?;
-                }
+                statements
+                    .iter()
+                    .map(|statement| statement.fmt(f))
+                    .collect::<Result<Vec<_>, _>>()?;
                 Ok(())
             }
         }
@@ -83,8 +84,8 @@ pub enum Expression {
     ),
     Function(
         Token,
-        Vec<Identifier>, // Parameters
-        Rc<Statement>,   // Body
+        Rc<Vec<Identifier>>, // Parameters
+        Rc<Statement>,       // Body
     ),
     Call(
         Token,

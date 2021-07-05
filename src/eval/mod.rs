@@ -70,7 +70,7 @@ impl Interpreter {
     fn eval_block_statement(&mut self, block_statement: &Statement) -> EvalResult {
         let mut result = Rc::new(IR::Nothing);
         if let Statement::Block(_, statements) = block_statement {
-            for statement in statements {
+            for statement in statements.iter() {
                 let value = self.eval_statement(statement)?;
                 match &*value {
                     IR::ReturnValue(_) => return Ok(value),
@@ -109,7 +109,7 @@ impl Interpreter {
                 self.eval_if_expression(condition, consequence, alternative)
             }
             Expression::Function(_, parameters, body) => Ok(Rc::new(IR::Function(
-                parameters.clone(),
+                Rc::clone(parameters),
                 Rc::clone(body),
                 Rc::clone(&self.env),
             ))),
