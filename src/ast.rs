@@ -71,9 +71,18 @@ pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
     Prefix(Token, Box<Expression>),
-    Infix(Token, Box<Expression>, Box<Expression>),
+    Infix(
+        Token,
+        Box<Expression>, // Left
+        Box<Expression>, // Right
+    ),
     Boolean(Token, bool),
-    If(IfExpression),
+    If(
+        Token,
+        Box<Expression>,        // Condition
+        Option<Box<Statement>>, // Consequence
+        Option<Box<Statement>>, // Alternative
+    ),
     Function(FunctionLiteral),
     Call(CallExpression),
     String(StringLiteral),
@@ -95,37 +104,25 @@ impl fmt::Display for Expression {
                 right = right
             ),
             Expression::Boolean(_, value) => value.fmt(f),
-            Expression::If(expression) => expression.fmt(f),
+            Expression::If(_, condition, consequence, alternative) => {
+                if let (condition, Some(consequence)) = (condition, consequence) {
+                    write!(
+                        f,
+                        "{token} {cond} {cons}",
+                        token = Token::If,
+                        cond = condition,
+                        cons = consequence
+                    )?;
+                    if let Some(alternative) = alternative {
+                        write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
+                    }
+                }
+                Ok(())
+            }
             Expression::Function(expression) => expression.fmt(f),
             Expression::Call(expression) => expression.fmt(f),
             Expression::String(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct IfExpression {
-    pub token: Token,
-    pub condition: Box<Expression>,
-    pub consequence: Option<Box<Statement>>,
-    pub alternative: Option<Box<Statement>>,
-}
-
-impl fmt::Display for IfExpression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if let (condition, Some(consequence)) = (&self.condition, &self.consequence) {
-            write!(
-                f,
-                "{token} {cond} {cons}",
-                token = Token::If,
-                cond = condition,
-                cons = consequence
-            )?;
-            if let Some(alternative) = &self.alternative {
-                write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
-            }
-        }
-        Ok(())
     }
 }
 

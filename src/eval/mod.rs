@@ -6,7 +6,7 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{Expression, Identifier, IfExpression, Program, Statement},
+    ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
     eval::ir::IR,
     token::Token,
@@ -105,7 +105,9 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_infix_expression(operator, left, right)
             }
-            Expression::If(expression) => self.eval_if_expression(expression),
+            Expression::If(_, condition, consequence, alternative) => {
+                self.eval_if_expression(condition, consequence, alternative)
+            }
             Expression::Function(expression) => Ok(Rc::new(IR::Function(
                 expression.parameters.clone(),
                 Rc::clone(&expression.body),
@@ -194,16 +196,16 @@ impl Interpreter {
         }
     }
 
-    fn eval_if_expression(&mut self, expression: &IfExpression) -> EvalResult {
-        let condition = self.eval_expression(&expression.condition)?;
+    fn eval_if_expression(
+        &mut self,
+        condition: &Expression,
+        consequence: &Option<Box<Statement>>,
+        alternative: &Option<Box<Statement>>,
+    ) -> EvalResult {
+        let condition = self.eval_expression(condition)?;
         if self.is_truthy(condition) {
-            self.eval_block_statement(
-                &expression
-                    .consequence
-                    .as_ref()
-                    .expect("Expected consequence"),
-            )
-        } else if let Some(alternative) = &expression.alternative {
+            self.eval_block_statement(consequence.as_ref().expect("Expected consequence"))
+        } else if let Some(alternative) = alternative {
             self.eval_block_statement(alternative)
         } else {
             Ok(Rc::new(NULL))
