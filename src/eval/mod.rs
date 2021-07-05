@@ -84,14 +84,15 @@ impl Interpreter {
     fn eval_expression(&mut self, expression: &Expression) -> EvalResult {
         match expression {
             Expression::Identifier(Identifier(identifier_key)) => {
-                if let Some(value) = self.env.borrow_mut().get(&identifier_key) {
-                    Ok(value)
-                } else {
-                    let interner = self.interner.borrow_mut();
-                    let identifier = interner
-                        .resolve(*identifier_key)
-                        .expect("Identifier should have been interned");
-                    Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
+                match self.env.borrow_mut().get(&identifier_key) {
+                    Some(value) => Ok(value),
+                    None => {
+                        let interner = self.interner.borrow_mut();
+                        let identifier = interner
+                            .resolve(*identifier_key)
+                            .expect("Identifier should have been interned");
+                        Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
+                    }
                 }
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
