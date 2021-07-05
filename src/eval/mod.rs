@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRReturnValue, IRString, IR, NULL};
+use crate::ir::{IRFunction, IRReturnValue, IRString, IR};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -18,6 +18,7 @@ type EvalResult = Result<Rc<IR>, EvalError>;
 
 const TRUE: IR = IR::Boolean(true);
 const FALSE: IR = IR::Boolean(false);
+const NULL: IR = IR::Null;
 
 pub struct Interpreter {
     interner: Rc<RefCell<StringInterner>>,
@@ -136,7 +137,7 @@ impl Interpreter {
             Token::Bang => match *right {
                 IR::Boolean(true) => Ok(Rc::new(FALSE)),
                 IR::Boolean(false) => Ok(Rc::new(TRUE)),
-                IR::Null(NULL) => Ok(Rc::new(TRUE)),
+                IR::Null => Ok(Rc::new(TRUE)),
                 _ => Ok(Rc::new(FALSE)),
             },
             Token::Minus => match &*right {
@@ -216,7 +217,7 @@ impl Interpreter {
         } else if let Some(alternative) = &expression.alternative {
             self.eval_block_statement(alternative)
         } else {
-            Ok(Rc::new(IR::Null(NULL)))
+            Ok(Rc::new(NULL))
         }
     }
 
@@ -245,7 +246,7 @@ impl Interpreter {
 
     fn is_truthy(&self, ir: Rc<IR>) -> bool {
         match *ir {
-            IR::Null(_) => false,
+            IR::Null => false,
             IR::Boolean(false) => false,
             IR::Boolean(true) => true,
             _ => true,
@@ -408,7 +409,7 @@ mod tests {
                     IR::Integer(value) => {
                         assert_eq!(&expected.unwrap(), value);
                     }
-                    IR::Null(_) => {
+                    IR::Null => {
                         assert!(expected.is_none());
                     }
                     ir_object => {
