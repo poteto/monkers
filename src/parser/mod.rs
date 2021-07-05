@@ -6,8 +6,7 @@ pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
         BlockStatement, BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier,
-        IfExpression, InfixExpression, PrefixExpression, Program, ReturnStatement, Statement,
-        StringLiteral,
+        IfExpression, InfixExpression, PrefixExpression, Program, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -118,14 +117,12 @@ impl<'a> Parser<'a> {
 
     fn parse_return_statement(&mut self) -> Result<Statement, ParserError> {
         self.next_token();
-        let statement = ReturnStatement {
-            token: Token::Return,
-            return_value: self.parse_expression(Precedence::Lowest)?,
-        };
+        let statement =
+            Statement::Return(Token::Return, self.parse_expression(Precedence::Lowest)?);
         if self.peek_token == Token::Semicolon {
             self.next_token();
         }
-        Ok(Statement::Return(statement))
+        Ok(statement)
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement, ParserError> {

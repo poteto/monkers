@@ -26,7 +26,7 @@ impl fmt::Display for Program {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let(Token, Identifier, Expression),
-    Return(ReturnStatement),
+    Return(Token, Expression),
     Expression(Expression),
     Block(BlockStatement),
 }
@@ -41,27 +41,12 @@ impl fmt::Display for Statement {
                 name = name,
                 value = value,
             ),
-            Statement::Return(statement) => statement.fmt(f),
+            Statement::Return(token, value) => {
+                write!(f, "{token} {value};", token = token, value = value)
+            }
             Statement::Expression(expression) => expression.fmt(f),
             Statement::Block(statement) => statement.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct ReturnStatement {
-    pub token: Token,
-    pub return_value: Expression,
-}
-
-impl fmt::Display for ReturnStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{token} {return_value};",
-            token = self.token,
-            return_value = self.return_value
-        )
     }
 }
 

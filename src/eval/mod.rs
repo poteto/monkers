@@ -61,8 +61,8 @@ impl Interpreter {
                 self.env.borrow_mut().set(&name.0, Rc::clone(&value));
                 Ok(value)
             }
-            Statement::Return(statement) => {
-                let value = self.eval_expression(&statement.return_value)?;
+            Statement::Return(_, value) => {
+                let value = self.eval_expression(value)?;
                 Ok(Rc::new(IR::ReturnValue(Rc::clone(&value))))
             }
             Statement::Expression(expression) => self.eval_expression(expression),
