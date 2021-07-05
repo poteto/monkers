@@ -1,16 +1,19 @@
 mod env;
 mod error;
+mod ir;
 
 use string_interner::StringInterner;
 
-use crate::ast::{
-    BlockStatement, Expression, Identifier, IfExpression, InfixExpression, PrefixExpression,
-    Program, Statement,
-};
 pub use crate::eval::env::Env;
-use crate::eval::error::EvalError;
-use crate::ir::IR;
-use crate::token::Token;
+use crate::{
+    ast::{
+        BlockStatement, Expression, Identifier, IfExpression, InfixExpression, PrefixExpression,
+        Program, Statement,
+    },
+    eval::error::EvalError,
+    eval::ir::IR,
+    token::Token,
+};
 
 use std::{cell::RefCell, mem, rc::Rc};
 
@@ -253,8 +256,7 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
     use string_interner::StringInterner;
 
-    use crate::eval::{Env, Interpreter};
-    use crate::ir::IR;
+    use crate::eval::{ir::IR, Env, Interpreter};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
