@@ -71,7 +71,7 @@ pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
     Prefix(Token, Box<Expression>),
-    Infix(InfixExpression),
+    Infix(Token, Box<Expression>, Box<Expression>),
     Boolean(BooleanExpression),
     If(IfExpression),
     Function(FunctionLiteral),
@@ -87,32 +87,19 @@ impl fmt::Display for Expression {
             Expression::Prefix(token, right) => {
                 write!(f, "({operator}{right})", operator = token, right = right)
             }
-            Expression::Infix(expression) => expression.fmt(f),
+            Expression::Infix(operator, left, right) => write!(
+                f,
+                "({left} {operator} {right})",
+                left = left,
+                operator = operator,
+                right = right
+            ),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
             Expression::If(expression) => expression.fmt(f),
             Expression::Function(expression) => expression.fmt(f),
             Expression::Call(expression) => expression.fmt(f),
             Expression::String(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct InfixExpression {
-    pub token: Token,
-    pub left: Box<Expression>,
-    pub right: Box<Expression>,
-}
-
-impl fmt::Display for InfixExpression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({left} {operator} {right})",
-            left = self.left,
-            operator = self.token,
-            right = self.right
-        )
     }
 }
 

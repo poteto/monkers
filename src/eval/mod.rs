@@ -6,7 +6,7 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{Expression, Identifier, IfExpression, InfixExpression, Program, Statement},
+    ast::{Expression, Identifier, IfExpression, Program, Statement},
     eval::error::EvalError,
     eval::ir::IR,
     token::Token,
@@ -96,14 +96,14 @@ impl Interpreter {
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
             Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
-            Expression::Prefix(_, right) => {
+            Expression::Prefix(operator, right) => {
                 let right = self.eval_expression(&right)?;
-                self.eval_prefix_expression(&expression, right)
+                self.eval_prefix_expression(operator, right)
             }
-            Expression::Infix(expression) => {
-                let left = self.eval_expression(&expression.left)?;
-                let right = self.eval_expression(&expression.right)?;
-                self.eval_infix_expression(expression, left, right)
+            Expression::Infix(operator, left, right) => {
+                let left = self.eval_expression(left)?;
+                let right = self.eval_expression(right)?;
+                self.eval_infix_expression(operator, left, right)
             }
             Expression::If(expression) => self.eval_if_expression(expression),
             Expression::Function(expression) => Ok(Rc::new(IR::Function(
@@ -128,33 +128,25 @@ impl Interpreter {
         }
     }
 
-    fn eval_prefix_expression(&self, expression: &Expression, right: Rc<IR>) -> EvalResult {
-        match expression {
-            Expression::Prefix(token, _) => match token {
-                Token::Bang => match *right {
-                    IR::Boolean(true) => Ok(Rc::new(FALSE)),
-                    IR::Boolean(false) => Ok(Rc::new(TRUE)),
-                    IR::Null => Ok(Rc::new(TRUE)),
-                    _ => Ok(Rc::new(FALSE)),
-                },
-                Token::Minus => match &*right {
-                    IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
-                    _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
-                },
-                token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
+    fn eval_prefix_expression(&self, operator: &Token, right: Rc<IR>) -> EvalResult {
+        match operator {
+            Token::Bang => match *right {
+                IR::Boolean(true) => Ok(Rc::new(FALSE)),
+                IR::Boolean(false) => Ok(Rc::new(TRUE)),
+                IR::Null => Ok(Rc::new(TRUE)),
+                _ => Ok(Rc::new(FALSE)),
             },
-            _ => unreachable!("Expected prefix expression"),
+            Token::Minus => match &*right {
+                IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
+                _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
+            },
+            operator => Err(EvalError::UnknownOperator(format!("{}{}", operator, right))),
         }
     }
 
-    fn eval_infix_expression(
-        &self,
-        expression: &InfixExpression,
-        left: Rc<IR>,
-        right: Rc<IR>,
-    ) -> EvalResult {
+    fn eval_infix_expression(&self, operator: &Token, left: Rc<IR>, right: Rc<IR>) -> EvalResult {
         match (&*left, &*right) {
-            (IR::Integer(left), IR::Integer(right)) => match &expression.token {
+            (IR::Integer(left), IR::Integer(right)) => match operator {
                 Token::Plus => Ok(Rc::new(IR::Integer(left + right))),
                 Token::Minus => Ok(Rc::new(IR::Integer(left - right))),
                 Token::Asterisk => Ok(Rc::new(IR::Integer(left * right))),
@@ -170,7 +162,7 @@ impl Interpreter {
                     right = right
                 ))),
             },
-            (IR::String(left), IR::String(right)) => match &expression.token {
+            (IR::String(left), IR::String(right)) => match operator {
                 Token::Plus => Ok(Rc::new(IR::String(left.clone() + &right))),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
@@ -179,24 +171,22 @@ impl Interpreter {
                     right = right
                 ))),
             },
-            (left, right) if expression.token == Token::Equal => {
-                Ok(self.get_interned_bool(left == right))
-            }
-            (left, right) if expression.token == Token::NotEqual => {
+            (left, right) if *operator == Token::Equal => Ok(self.get_interned_bool(left == right)),
+            (left, right) if *operator == Token::NotEqual => {
                 Ok(self.get_interned_bool(left != right))
             }
             (left, right) if mem::discriminant(left) != mem::discriminant(right) => {
                 Err(EvalError::TypeError(format!(
                     "{left} {operator} {right}",
                     left = left,
-                    operator = expression.token,
+                    operator = operator,
                     right = right
                 )))
             }
             (left, right) => Err(EvalError::UnknownOperator(format!(
                 "{left} {operator} {right}",
                 left = left,
-                operator = expression.token,
+                operator = operator,
                 right = right
             ))),
         }
