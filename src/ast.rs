@@ -23,9 +23,10 @@ pub struct Program {
 
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for statement in &self.statements {
-            statement.fmt(f)?;
-        }
+        self.statements
+            .iter()
+            .map(|statement| statement.fmt(f))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(())
     }
 }
