@@ -6,6 +6,16 @@ use crate::{
 };
 use std::{fmt, rc::Rc};
 
+// Identifier
+#[derive(Clone, Debug, PartialEq)]
+pub struct Identifier(pub SymbolU32);
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Identifier({:?})", self.0.to_usize())
+    }
+}
+
 // Program
 #[derive(Debug, PartialEq)]
 pub struct Program {
@@ -60,7 +70,7 @@ impl fmt::Display for Statement {
 pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
-    Prefix(PrefixExpression),
+    Prefix(Token, Box<Expression>),
     Infix(InfixExpression),
     Boolean(BooleanExpression),
     If(IfExpression),
@@ -74,7 +84,9 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(identifier) => identifier.fmt(f),
             Expression::Integer(integer) => integer.fmt(f),
-            Expression::Prefix(expression) => expression.fmt(f),
+            Expression::Prefix(token, right) => {
+                write!(f, "({operator}{right})", operator = token, right = right)
+            }
             Expression::Infix(expression) => expression.fmt(f),
             Expression::Boolean(boolean) => boolean.value.fmt(f),
             Expression::If(expression) => expression.fmt(f),
@@ -82,32 +94,6 @@ impl fmt::Display for Expression {
             Expression::Call(expression) => expression.fmt(f),
             Expression::String(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct Identifier(pub SymbolU32);
-
-impl fmt::Display for Identifier {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Identifier({:?})", self.0.to_usize())
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct PrefixExpression {
-    pub token: Token,
-    pub right: Box<Expression>,
-}
-
-impl fmt::Display for PrefixExpression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "({operator}{right})",
-            operator = self.token,
-            right = self.right
-        )
     }
 }
 

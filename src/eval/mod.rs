@@ -6,9 +6,7 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{
-        Expression, Identifier, IfExpression, InfixExpression, PrefixExpression, Program, Statement,
-    },
+    ast::{Expression, Identifier, IfExpression, InfixExpression, Program, Statement},
     eval::error::EvalError,
     eval::ir::IR,
     token::Token,
@@ -98,8 +96,8 @@ impl Interpreter {
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
             Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
-            Expression::Prefix(expression) => {
-                let right = self.eval_expression(&expression.right)?;
+            Expression::Prefix(_, right) => {
+                let right = self.eval_expression(&right)?;
                 self.eval_prefix_expression(&expression, right)
             }
             Expression::Infix(expression) => {
@@ -130,19 +128,22 @@ impl Interpreter {
         }
     }
 
-    fn eval_prefix_expression(&self, expression: &PrefixExpression, right: Rc<IR>) -> EvalResult {
-        match &expression.token {
-            Token::Bang => match *right {
-                IR::Boolean(true) => Ok(Rc::new(FALSE)),
-                IR::Boolean(false) => Ok(Rc::new(TRUE)),
-                IR::Null => Ok(Rc::new(TRUE)),
-                _ => Ok(Rc::new(FALSE)),
+    fn eval_prefix_expression(&self, expression: &Expression, right: Rc<IR>) -> EvalResult {
+        match expression {
+            Expression::Prefix(token, _) => match token {
+                Token::Bang => match *right {
+                    IR::Boolean(true) => Ok(Rc::new(FALSE)),
+                    IR::Boolean(false) => Ok(Rc::new(TRUE)),
+                    IR::Null => Ok(Rc::new(TRUE)),
+                    _ => Ok(Rc::new(FALSE)),
+                },
+                Token::Minus => match &*right {
+                    IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
+                    _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
+                },
+                token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
             },
-            Token::Minus => match &*right {
-                IR::Integer(integer) => Ok(Rc::new(IR::Integer(-integer))),
-                _ => Err(EvalError::UnknownOperator(format!("-{}", right))),
-            },
-            token => Err(EvalError::UnknownOperator(format!("{}{}", token, right))),
+            _ => unreachable!("Expected prefix expression"),
         }
     }
 

@@ -6,7 +6,7 @@ pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
         BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier, IfExpression,
-        InfixExpression, PrefixExpression, Program, Statement, StringLiteral,
+        InfixExpression, Program, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -273,10 +273,10 @@ impl<'a> Parser<'a> {
     fn parse_prefix_expression(&mut self) -> Result<Expression, ParserError> {
         let token = self.curr_token.clone();
         self.next_token();
-        Ok(Expression::Prefix(PrefixExpression {
+        Ok(Expression::Prefix(
             token,
-            right: Box::new(self.parse_expression(Precedence::Prefix)?),
-        }))
+            Box::new(self.parse_expression(Precedence::Prefix)?),
+        ))
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
