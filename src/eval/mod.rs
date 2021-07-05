@@ -7,8 +7,7 @@ use string_interner::StringInterner;
 pub use crate::eval::env::Env;
 use crate::{
     ast::{
-        BlockStatement, Expression, Identifier, IfExpression, InfixExpression, PrefixExpression,
-        Program, Statement,
+        Expression, Identifier, IfExpression, InfixExpression, PrefixExpression, Program, Statement,
     },
     eval::error::EvalError,
     eval::ir::IR,
@@ -66,18 +65,20 @@ impl Interpreter {
                 Ok(Rc::new(IR::ReturnValue(Rc::clone(&value))))
             }
             Statement::Expression(expression) => self.eval_expression(expression),
-            Statement::Block(statement) => self.eval_program(&statement.statements),
+            Statement::Block(_, statements) => self.eval_program(statements),
         }
     }
 
-    fn eval_block_statement(&mut self, block_statement: &BlockStatement) -> EvalResult {
+    fn eval_block_statement(&mut self, block_statement: &Statement) -> EvalResult {
         let mut result = Rc::new(IR::Nothing);
-        for statement in &block_statement.statements {
-            let value = self.eval_statement(statement)?;
-            match &*value {
-                IR::ReturnValue(_) => return Ok(value),
-                _ => result = value,
-            };
+        if let Statement::Block(_, statements) = block_statement {
+            for statement in statements {
+                let value = self.eval_statement(statement)?;
+                match &*value {
+                    IR::ReturnValue(_) => return Ok(value),
+                    _ => result = value,
+                };
+            }
         }
         Ok(result)
     }
@@ -109,7 +110,7 @@ impl Interpreter {
             Expression::If(expression) => self.eval_if_expression(expression),
             Expression::Function(expression) => Ok(Rc::new(IR::Function(
                 expression.parameters.clone(),
-                expression.body.clone(),
+                Rc::clone(&expression.body),
                 Rc::clone(&self.env),
             ))),
             Expression::Call(expression) => {

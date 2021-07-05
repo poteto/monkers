@@ -1,7 +1,7 @@
 use std::{cell::RefCell, fmt, rc::Rc};
 
 use crate::{
-    ast::{BlockStatement, Identifier},
+    ast::{Identifier, Statement},
     eval::Env,
     token::IntegerSize,
 };
@@ -13,7 +13,7 @@ pub enum IR {
     Boolean(bool),
     Null,
     ReturnValue(Rc<IR>),
-    Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
+    Function(Vec<Identifier>, Rc<Statement>, Rc<RefCell<Env>>),
     String(String),
 }
 

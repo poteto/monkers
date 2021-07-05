@@ -4,7 +4,7 @@ use crate::{
     parser::ParserError,
     token::{IntegerSize, Token},
 };
-use std::fmt;
+use std::{fmt, rc::Rc};
 
 // Program
 #[derive(Debug, PartialEq)]
@@ -28,7 +28,7 @@ pub enum Statement {
     Let(Token, Identifier, Expression),
     Return(Token, Expression),
     Expression(Expression),
-    Block(BlockStatement),
+    Block(Token, Vec<Statement>),
 }
 
 impl fmt::Display for Statement {
@@ -45,23 +45,13 @@ impl fmt::Display for Statement {
                 write!(f, "{token} {value};", token = token, value = value)
             }
             Statement::Expression(expression) => expression.fmt(f),
-            Statement::Block(statement) => statement.fmt(f),
+            Statement::Block(_, statements) => {
+                for statement in statements {
+                    statement.fmt(f)?;
+                }
+                Ok(())
+            }
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BlockStatement {
-    pub token: Token,
-    pub statements: Vec<Statement>,
-}
-
-impl fmt::Display for BlockStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for statement in &self.statements {
-            statement.fmt(f)?;
-        }
-        Ok(())
     }
 }
 
@@ -150,8 +140,8 @@ pub struct BooleanExpression {
 pub struct IfExpression {
     pub token: Token,
     pub condition: Box<Expression>,
-    pub consequence: Option<BlockStatement>,
-    pub alternative: Option<BlockStatement>,
+    pub consequence: Option<Box<Statement>>,
+    pub alternative: Option<Box<Statement>>,
 }
 
 impl fmt::Display for IfExpression {
@@ -176,7 +166,7 @@ impl fmt::Display for IfExpression {
 pub struct FunctionLiteral {
     pub token: Token,
     pub parameters: Vec<Identifier>,
-    pub body: BlockStatement,
+    pub body: Rc<Statement>,
 }
 
 impl fmt::Display for FunctionLiteral {

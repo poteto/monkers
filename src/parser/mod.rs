@@ -5,13 +5,13 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        BlockStatement, BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier,
-        IfExpression, InfixExpression, PrefixExpression, Program, Statement, StringLiteral,
+        BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier, IfExpression,
+        InfixExpression, PrefixExpression, Program, Statement, StringLiteral,
     },
     lexer::Lexer,
     token::Token,
 };
-use std::mem;
+use std::{mem, rc::Rc};
 
 #[derive(PartialEq, PartialOrd)]
 enum Precedence {
@@ -137,7 +137,7 @@ impl<'a> Parser<'a> {
         expression_statement
     }
 
-    fn parse_block_statement(&mut self) -> Result<BlockStatement, ParserError> {
+    fn parse_block_statement(&mut self) -> Result<Statement, ParserError> {
         let mut statements = Vec::new();
         self.next_token();
         while self.curr_token != Token::Rbrace && self.curr_token != Token::EndOfFile {
@@ -146,10 +146,7 @@ impl<'a> Parser<'a> {
             }
             self.next_token();
         }
-        Ok(BlockStatement {
-            token: Token::Lbrace,
-            statements,
-        })
+        Ok(Statement::Block(Token::Lbrace, statements))
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression, ParserError> {
@@ -185,13 +182,13 @@ impl<'a> Parser<'a> {
                 alternative: Default::default(),
             };
             if let Ok(statement) = self.parse_block_statement() {
-                expression.consequence = Some(statement);
+                expression.consequence = Some(Box::new(statement));
             }
             if self.peek_token == Token::Else {
                 self.next_token();
                 self.expect_peek(Token::Lbrace)?;
                 if let Ok(statement) = self.parse_block_statement() {
-                    expression.alternative = Some(statement)
+                    expression.alternative = Some(Box::new(statement))
                 }
             }
             Ok(Expression::If(expression))
@@ -204,7 +201,7 @@ impl<'a> Parser<'a> {
         self.expect_peek(Token::Lparen)?;
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
-        let body = self.parse_block_statement()?;
+        let body = Rc::new(self.parse_block_statement()?);
         Ok(Expression::Function(FunctionLiteral {
             token: Token::Function,
             parameters,
