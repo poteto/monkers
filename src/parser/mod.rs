@@ -6,8 +6,8 @@ pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
         BlockStatement, BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier,
-        IfExpression, InfixExpression, LetStatement, PrefixExpression, Program, ReturnStatement,
-        Statement, StringLiteral,
+        IfExpression, InfixExpression, PrefixExpression, Program, ReturnStatement, Statement,
+        StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -98,15 +98,15 @@ impl<'a> Parser<'a> {
             self.next_token(); // let -> identifier
             self.expect_peek(Token::Assign)?;
             self.next_token();
-            let statement = LetStatement {
-                token: Token::Let,
-                name: Identifier(ident),
-                value: self.parse_expression(Precedence::Lowest)?,
-            };
+            let statement = Statement::Let(
+                Token::Let,
+                Identifier(ident),
+                self.parse_expression(Precedence::Lowest)?,
+            );
             if self.peek_token == Token::Semicolon {
                 self.next_token();
             }
-            Ok(Statement::Let(statement))
+            Ok(statement)
         } else {
             Err(self.parse_syntax_error(format!(
                 "Expected identifier to follow `{}`, got `{}` instead",

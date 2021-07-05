@@ -56,11 +56,9 @@ impl Interpreter {
 
     fn eval_statement(&mut self, statement: &Statement) -> EvalResult {
         match statement {
-            Statement::Let(statement) => {
-                let value = self.eval_expression(&statement.value)?;
-                self.env
-                    .borrow_mut()
-                    .set(&statement.name.0, Rc::clone(&value));
+            Statement::Let(_, name, value) => {
+                let value = self.eval_expression(value)?;
+                self.env.borrow_mut().set(&name.0, Rc::clone(&value));
                 Ok(value)
             }
             Statement::Return(statement) => {

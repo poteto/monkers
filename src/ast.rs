@@ -25,7 +25,7 @@ impl fmt::Display for Program {
 // Statements
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    Let(LetStatement),
+    Let(Token, Identifier, Expression),
     Return(ReturnStatement),
     Expression(Expression),
     Block(BlockStatement),
@@ -34,41 +34,17 @@ pub enum Statement {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Statement::Let(statement) => statement.fmt(f),
+            Statement::Let(token, name, value) => write!(
+                f,
+                "{token} {name} = {value};",
+                token = token,
+                name = name,
+                value = value,
+            ),
             Statement::Return(statement) => statement.fmt(f),
             Statement::Expression(expression) => expression.fmt(f),
             Statement::Block(statement) => statement.fmt(f),
         }
-    }
-}
-
-impl Statement {
-    pub fn token(&self) -> Option<&Token> {
-        match self {
-            Statement::Let(statement) => Some(&statement.token),
-            Statement::Return(statement) => Some(&statement.token),
-            Statement::Expression(_) => None,
-            Statement::Block(statement) => Some(&statement.token),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct LetStatement {
-    pub token: Token,
-    pub name: Identifier,
-    pub value: Expression,
-}
-
-impl fmt::Display for LetStatement {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{token} {name} = {value};",
-            token = self.token,
-            name = self.name,
-            value = self.value,
-        )
     }
 }
 
