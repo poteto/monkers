@@ -88,7 +88,11 @@ pub enum Expression {
         Vec<Identifier>, // Parameters
         Rc<Statement>,   // Body
     ),
-    Call(CallExpression),
+    Call(
+        Token,
+        Box<Expression>, // Function
+        Vec<Expression>, // Arguments
+    ),
     String(StringLiteral),
 }
 
@@ -134,32 +138,18 @@ impl fmt::Display for Expression {
                     .join(", "),
                 body = body
             ),
-            Expression::Call(expression) => expression.fmt(f),
+            Expression::Call(_, function, arguments) => write!(
+                f,
+                "{func}({args})",
+                func = function,
+                args = arguments
+                    .iter()
+                    .map(|arg| arg.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Expression::String(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct CallExpression {
-    pub token: Token,
-    pub function: Box<Expression>,
-    pub arguments: Vec<Expression>,
-}
-
-impl fmt::Display for CallExpression {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{func}({args})",
-            func = self.function,
-            args = self
-                .arguments
-                .iter()
-                .map(|arg| arg.to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
-        )
     }
 }
 

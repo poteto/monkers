@@ -113,14 +113,13 @@ impl Interpreter {
                 Rc::clone(body),
                 Rc::clone(&self.env),
             ))),
-            Expression::Call(expression) => {
-                let function = self.eval_expression(&expression.function)?;
-                let evaluated_args = &expression
-                    .arguments
+            Expression::Call(_, function, arguments) => {
+                let function = self.eval_expression(function)?;
+                let evaluated_args = arguments
                     .iter()
                     .map(|arg| self.eval_expression(arg))
                     .collect::<Result<Vec<Rc<IR>>, _>>()?;
-                self.eval_call_expression(function, evaluated_args)
+                self.eval_call_expression(function, &evaluated_args)
             }
             Expression::String(string) => {
                 let interner = self.interner.borrow_mut();
