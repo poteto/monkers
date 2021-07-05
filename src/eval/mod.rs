@@ -95,7 +95,7 @@ impl Interpreter {
                 }
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
-            Expression::Boolean(expression) => Ok(self.get_interned_bool(expression.value)),
+            Expression::Boolean(_, value) => Ok(self.get_interned_bool(value)),
             Expression::Prefix(operator, right) => {
                 let right = self.eval_expression(&right)?;
                 self.eval_prefix_expression(operator, right)
@@ -151,10 +151,10 @@ impl Interpreter {
                 Token::Minus => Ok(Rc::new(IR::Integer(left - right))),
                 Token::Asterisk => Ok(Rc::new(IR::Integer(left * right))),
                 Token::Slash => Ok(Rc::new(IR::Integer(left / right))),
-                Token::LessThan => Ok(self.get_interned_bool(left < right)),
-                Token::GreaterThan => Ok(self.get_interned_bool(left > right)),
-                Token::Equal => Ok(self.get_interned_bool(left == right)),
-                Token::NotEqual => Ok(self.get_interned_bool(left != right)),
+                Token::LessThan => Ok(self.get_interned_bool(&(left < right))),
+                Token::GreaterThan => Ok(self.get_interned_bool(&(left > right))),
+                Token::Equal => Ok(self.get_interned_bool(&(left == right))),
+                Token::NotEqual => Ok(self.get_interned_bool(&(left != right))),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -171,9 +171,11 @@ impl Interpreter {
                     right = right
                 ))),
             },
-            (left, right) if *operator == Token::Equal => Ok(self.get_interned_bool(left == right)),
+            (left, right) if *operator == Token::Equal => {
+                Ok(self.get_interned_bool(&(left == right)))
+            }
             (left, right) if *operator == Token::NotEqual => {
-                Ok(self.get_interned_bool(left != right))
+                Ok(self.get_interned_bool(&(left != right)))
             }
             (left, right) if mem::discriminant(left) != mem::discriminant(right) => {
                 Err(EvalError::TypeError(format!(
@@ -224,7 +226,7 @@ impl Interpreter {
         }
     }
 
-    fn get_interned_bool(&self, native_value: bool) -> Rc<IR> {
+    fn get_interned_bool(&self, native_value: &bool) -> Rc<IR> {
         match native_value {
             true => Rc::new(TRUE),
             false => Rc::new(FALSE),

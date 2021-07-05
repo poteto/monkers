@@ -72,7 +72,7 @@ pub enum Expression {
     Integer(IntegerSize),
     Prefix(Token, Box<Expression>),
     Infix(Token, Box<Expression>, Box<Expression>),
-    Boolean(BooleanExpression),
+    Boolean(Token, bool),
     If(IfExpression),
     Function(FunctionLiteral),
     Call(CallExpression),
@@ -94,19 +94,13 @@ impl fmt::Display for Expression {
                 operator = operator,
                 right = right
             ),
-            Expression::Boolean(boolean) => boolean.value.fmt(f),
+            Expression::Boolean(_, value) => value.fmt(f),
             Expression::If(expression) => expression.fmt(f),
             Expression::Function(expression) => expression.fmt(f),
             Expression::Call(expression) => expression.fmt(f),
             Expression::String(expression) => expression.fmt(f),
         }
     }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct BooleanExpression {
-    pub token: Token,
-    pub value: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

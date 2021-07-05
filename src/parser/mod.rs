@@ -5,8 +5,8 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        BooleanExpression, CallExpression, Expression, FunctionLiteral, Identifier, IfExpression,
-        Program, Statement, StringLiteral,
+        CallExpression, Expression, FunctionLiteral, Identifier, IfExpression, Program, Statement,
+        StringLiteral,
     },
     lexer::Lexer,
     token::Token,
@@ -237,10 +237,10 @@ impl<'a> Parser<'a> {
                 Ok(Expression::Identifier(Identifier(*identifier_key)))
             }
             Token::Integer(i) => Ok(Expression::Integer(*i)),
-            Token::Boolean(_) => Ok(Expression::Boolean(BooleanExpression {
-                token: self.curr_token.clone(),
-                value: self.curr_token == Token::Boolean(true),
-            })),
+            Token::Boolean(_) => Ok(Expression::Boolean(
+                self.curr_token.clone(),
+                self.curr_token == Token::Boolean(true),
+            )),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
