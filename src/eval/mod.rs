@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRString, IR};
+use crate::ir::IR;
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -123,9 +123,7 @@ impl Interpreter {
             Expression::String(string) => {
                 let interner = self.interner.borrow_mut();
                 let value = interner.resolve(string.value).unwrap();
-                Ok(Rc::new(IR::String(IRString {
-                    value: value.to_string(),
-                })))
+                Ok(Rc::new(IR::String(value.to_string())))
             }
         }
     }
@@ -170,9 +168,7 @@ impl Interpreter {
                 ))),
             },
             (IR::String(left), IR::String(right)) => match &expression.token {
-                Token::Plus => Ok(Rc::new(IR::String(IRString {
-                    value: left.value.clone() + &right.value,
-                }))),
+                Token::Plus => Ok(Rc::new(IR::String(left.clone() + &right))),
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -258,7 +254,7 @@ mod tests {
     use string_interner::StringInterner;
 
     use crate::eval::{Env, Interpreter};
-    use crate::ir::{IRString, IR};
+    use crate::ir::IR;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -596,7 +592,7 @@ mod tests {
             let result = test_eval(input);
             match result {
                 Ok(ir) => match &*ir {
-                    IR::String(IRString { value }) => {
+                    IR::String(value) => {
                         assert_eq!(expected, value);
                     }
                     ir_object => {

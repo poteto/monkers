@@ -1,7 +1,3 @@
-mod string;
-
-pub use string::IRString;
-
 use std::{cell::RefCell, fmt, rc::Rc};
 
 use crate::{
@@ -18,7 +14,7 @@ pub enum IR {
     Null,
     ReturnValue(Rc<IR>),
     Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
-    String(IRString),
+    String(String),
 }
 
 impl fmt::Display for IR {
