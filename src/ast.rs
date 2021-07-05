@@ -83,7 +83,11 @@ pub enum Expression {
         Option<Box<Statement>>, // Consequence
         Option<Box<Statement>>, // Alternative
     ),
-    Function(FunctionLiteral),
+    Function(
+        Token,
+        Vec<Identifier>, // Parameters
+        Rc<Statement>,   // Body
+    ),
     Call(CallExpression),
     String(StringLiteral),
 }
@@ -104,12 +108,12 @@ impl fmt::Display for Expression {
                 right = right
             ),
             Expression::Boolean(_, value) => value.fmt(f),
-            Expression::If(_, condition, consequence, alternative) => {
+            Expression::If(token, condition, consequence, alternative) => {
                 if let (condition, Some(consequence)) = (condition, consequence) {
                     write!(
                         f,
                         "{token} {cond} {cons}",
-                        token = Token::If,
+                        token = token,
                         cond = condition,
                         cons = consequence
                     )?;
@@ -119,34 +123,20 @@ impl fmt::Display for Expression {
                 }
                 Ok(())
             }
-            Expression::Function(expression) => expression.fmt(f),
+            Expression::Function(token, parameters, body) => write!(
+                f,
+                "{token}({params}) {{{body}}}",
+                token = token,
+                params = parameters
+                    .iter()
+                    .map(|ident| ident.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                body = body
+            ),
             Expression::Call(expression) => expression.fmt(f),
             Expression::String(expression) => expression.fmt(f),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct FunctionLiteral {
-    pub token: Token,
-    pub parameters: Vec<Identifier>,
-    pub body: Rc<Statement>,
-}
-
-impl fmt::Display for FunctionLiteral {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{token}({params}) {{{body}}}",
-            token = Token::Function,
-            params = &self
-                .parameters
-                .iter()
-                .map(|ident| ident.to_string())
-                .collect::<Vec<String>>()
-                .join(", "),
-            body = self.body
-        )
     }
 }
 

@@ -4,9 +4,7 @@ use string_interner::symbol::SymbolU32;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
-    ast::{
-        CallExpression, Expression, FunctionLiteral, Identifier, Program, Statement, StringLiteral,
-    },
+    ast::{CallExpression, Expression, Identifier, Program, Statement, StringLiteral},
     lexer::Lexer,
     token::Token,
 };
@@ -202,11 +200,7 @@ impl<'a> Parser<'a> {
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
         let body = Rc::new(self.parse_block_statement()?);
-        Ok(Expression::Function(FunctionLiteral {
-            token: Token::Function,
-            parameters,
-            body,
-        }))
+        Ok(Expression::Function(Token::Function, parameters, body))
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {

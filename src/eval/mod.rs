@@ -108,9 +108,9 @@ impl Interpreter {
             Expression::If(_, condition, consequence, alternative) => {
                 self.eval_if_expression(condition, consequence, alternative)
             }
-            Expression::Function(expression) => Ok(Rc::new(IR::Function(
-                expression.parameters.clone(),
-                Rc::clone(&expression.body),
+            Expression::Function(_, parameters, body) => Ok(Rc::new(IR::Function(
+                parameters.clone(),
+                Rc::clone(body),
                 Rc::clone(&self.env),
             ))),
             Expression::Call(expression) => {
