@@ -32,15 +32,16 @@ impl fmt::Display for Program {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
+    Expression(Expression),
     Let(Token, Identifier, Expression),
     Return(Token, Expression),
-    Expression(Expression),
     Block(Token, Vec<Statement>),
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Statement::Expression(expression) => expression.fmt(f),
             Statement::Let(token, name, value) => write!(
                 f,
                 "{token} {name} = {value};",
@@ -51,7 +52,6 @@ impl fmt::Display for Statement {
             Statement::Return(token, value) => {
                 write!(f, "{token} {value};", token = token, value = value)
             }
-            Statement::Expression(expression) => expression.fmt(f),
             Statement::Block(_, statements) => {
                 for statement in statements {
                     statement.fmt(f)?;
@@ -66,13 +66,15 @@ impl fmt::Display for Statement {
 pub enum Expression {
     Identifier(Identifier),
     Integer(IntegerSize),
+    String(SymbolU32),
+    Boolean(Token, bool),
+
     Prefix(Token, Box<Expression>),
     Infix(
         Token,
         Box<Expression>, // Left
         Box<Expression>, // Right
     ),
-    Boolean(Token, bool),
     If(
         Token,
         Box<Expression>,        // Condition
@@ -89,7 +91,6 @@ pub enum Expression {
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
     ),
-    String(Token, SymbolU32),
 }
 
 impl fmt::Display for Expression {
@@ -97,6 +98,10 @@ impl fmt::Display for Expression {
         match self {
             Expression::Identifier(identifier) => identifier.fmt(f),
             Expression::Integer(integer) => integer.fmt(f),
+            Expression::String(string_key) => {
+                write!(f, "String({:?})", string_key.to_usize())
+            }
+            Expression::Boolean(_, value) => value.fmt(f),
             Expression::Prefix(token, right) => {
                 write!(f, "({operator}{right})", operator = token, right = right)
             }
@@ -107,7 +112,6 @@ impl fmt::Display for Expression {
                 operator = operator,
                 right = right
             ),
-            Expression::Boolean(_, value) => value.fmt(f),
             Expression::If(token, condition, consequence, alternative) => {
                 if let (condition, Some(consequence)) = (condition, consequence) {
                     write!(
@@ -144,7 +148,6 @@ impl fmt::Display for Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            Expression::String(_, value) => write!(f, "String({:?})", value.to_usize()),
         }
     }
 }

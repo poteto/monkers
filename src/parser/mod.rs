@@ -231,17 +231,14 @@ impl<'a> Parser<'a> {
                 Ok(Expression::Identifier(Identifier(*identifier_key)))
             }
             Token::Integer(i) => Ok(Expression::Integer(*i)),
-            Token::Boolean(_) => Ok(Expression::Boolean(
-                self.curr_token.clone(),
-                self.curr_token == Token::Boolean(true),
-            )),
+            Token::Boolean(value) => {
+                Ok(Expression::Boolean(Token::Boolean(*value), *value == true))
+            }
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
-            Token::String(string_key) => {
-                Ok(Expression::String(self.curr_token.clone(), *string_key))
-            }
+            Token::String(string_key) => Ok(Expression::String(*string_key)),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
