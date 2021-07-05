@@ -9,7 +9,7 @@ use crate::ast::{
 };
 pub use crate::eval::env::Env;
 use crate::eval::error::EvalError;
-use crate::ir::{IRFunction, IRString, IR};
+use crate::ir::{IRString, IR};
 use crate::token::Token;
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -106,11 +106,11 @@ impl Interpreter {
                 self.eval_infix_expression(expression, left, right)
             }
             Expression::If(expression) => self.eval_if_expression(expression),
-            Expression::Function(expression) => Ok(Rc::new(IR::Function(IRFunction {
-                env: Rc::clone(&self.env),
-                body: expression.body.clone(),
-                parameters: expression.parameters.clone(),
-            }))),
+            Expression::Function(expression) => Ok(Rc::new(IR::Function(
+                expression.parameters.clone(),
+                expression.body.clone(),
+                Rc::clone(&self.env),
+            ))),
             Expression::Call(expression) => {
                 let function = self.eval_expression(&expression.function)?;
                 let evaluated_args = &expression
@@ -221,15 +221,15 @@ impl Interpreter {
 
     fn eval_call_expression(&mut self, function: Rc<IR>, arguments: &Vec<Rc<IR>>) -> EvalResult {
         match &*function {
-            IR::Function(ir_function) => {
-                let mut env = Env::with_outer(Rc::clone(&ir_function.env));
+            IR::Function(parameters, body, env) => {
+                let mut env = Env::with_outer(Rc::clone(env));
                 for (Identifier(identifier_key), evaluated_arg) in
-                    ir_function.parameters.iter().zip(arguments.iter())
+                    parameters.iter().zip(arguments.iter())
                 {
                     env.set(identifier_key, Rc::clone(&evaluated_arg))
                 }
                 self.env = Rc::new(RefCell::new(env));
-                self.eval_block_statement(&ir_function.body)
+                self.eval_block_statement(body)
             }
             ir => Err(EvalError::TypeError(format!("{} is not a function", ir))),
         }

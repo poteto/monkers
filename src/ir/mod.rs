@@ -1,12 +1,14 @@
-mod function;
 mod string;
 
-pub use function::IRFunction;
 pub use string::IRString;
 
-use std::{fmt, rc::Rc};
+use std::{cell::RefCell, fmt, rc::Rc};
 
-use crate::token::IntegerSize;
+use crate::{
+    ast::{BlockStatement, Identifier},
+    eval::Env,
+    token::IntegerSize,
+};
 
 #[derive(Clone, Debug)]
 pub enum IR {
@@ -15,7 +17,7 @@ pub enum IR {
     Boolean(bool),
     Null,
     ReturnValue(Rc<IR>),
-    Function(IRFunction),
+    Function(Vec<Identifier>, BlockStatement, Rc<RefCell<Env>>),
     String(IRString),
 }
 
@@ -27,7 +29,7 @@ impl fmt::Display for IR {
             IR::Boolean(ir) => ir.fmt(f),
             IR::Null => write!(f, "null"),
             IR::ReturnValue(ir) => ir.fmt(f),
-            IR::Function(ir) => ir.fmt(f),
+            IR::Function(_, _, _) => Ok(()),
             IR::String(ir) => ir.fmt(f),
         }
     }
