@@ -121,9 +121,9 @@ impl Interpreter {
                     .collect::<Result<Vec<Rc<IR>>, _>>()?;
                 self.eval_call_expression(function, &evaluated_args)
             }
-            Expression::String(string) => {
+            Expression::String(_, string_key) => {
                 let interner = self.interner.borrow_mut();
-                let value = interner.resolve(string.value).unwrap();
+                let value = interner.resolve(*string_key).unwrap();
                 Ok(Rc::new(IR::String(value.to_string())))
             }
         }

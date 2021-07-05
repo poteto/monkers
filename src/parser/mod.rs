@@ -4,7 +4,7 @@ use string_interner::symbol::SymbolU32;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
-    ast::{Expression, Identifier, Program, Statement, StringLiteral},
+    ast::{Expression, Identifier, Program, Statement},
     lexer::Lexer,
     token::Token,
 };
@@ -239,10 +239,9 @@ impl<'a> Parser<'a> {
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
-            Token::String(string_key) => Ok(Expression::String(StringLiteral {
-                token: self.curr_token.clone(),
-                value: *string_key,
-            })),
+            Token::String(string_key) => {
+                Ok(Expression::String(self.curr_token.clone(), *string_key))
+            }
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),

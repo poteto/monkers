@@ -6,7 +6,6 @@ use crate::{
 };
 use std::{fmt, rc::Rc};
 
-// Identifier
 #[derive(Clone, Debug, PartialEq)]
 pub struct Identifier(pub SymbolU32);
 
@@ -16,7 +15,6 @@ impl fmt::Display for Identifier {
     }
 }
 
-// Program
 #[derive(Debug, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
@@ -32,7 +30,6 @@ impl fmt::Display for Program {
     }
 }
 
-// Statements
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Let(Token, Identifier, Expression),
@@ -65,7 +62,6 @@ impl fmt::Display for Statement {
     }
 }
 
-// Expressions
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Identifier(Identifier),
@@ -93,7 +89,7 @@ pub enum Expression {
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
     ),
-    String(StringLiteral),
+    String(Token, SymbolU32),
 }
 
 impl fmt::Display for Expression {
@@ -148,19 +144,7 @@ impl fmt::Display for Expression {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            Expression::String(expression) => expression.fmt(f),
+            Expression::String(_, value) => write!(f, "String({:?})", value.to_usize()),
         }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct StringLiteral {
-    pub token: Token,
-    pub value: SymbolU32,
-}
-
-impl fmt::Display for StringLiteral {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "String({:?})", self.value.to_usize())
     }
 }
