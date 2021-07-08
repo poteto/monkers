@@ -239,9 +239,7 @@ impl<'a> Parser<'a> {
             Token::Lbracket => Ok(Expression::Array(
                 self.parse_expression_list(Token::Rbracket)?,
             )),
-            _ => Err(ParserError::UnhandledPrefixOperator(
-                self.curr_token.clone(),
-            )),
+            token => Err(ParserError::UnhandledPrefixOperator(token.clone())),
         }
     }
 
@@ -596,8 +594,6 @@ mod tests {
         for (input, expected_string) in tests {
             let program = test_parse(input);
 
-            println!("{:#?}", program);
-
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
@@ -611,8 +607,6 @@ mod tests {
         for (input, expected_string) in tests {
             let program = test_parse(input);
 
-            println!("{:#?}", program);
-
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());
             assert!(program.errors.is_empty());
@@ -621,12 +615,13 @@ mod tests {
 
     #[test]
     fn it_parses_index_expressions() {
-        let tests = vec![("myArray[1 + 1]", "(Identifier(0)[(1 + 1)])")];
+        let tests = vec![
+            ("myArray[1 + 1];", "(Identifier(0)[(1 + 1)])"),
+            ("[1, 2, 3][0];", "([1, 2, 3][0])"),
+        ];
 
         for (input, expected_string) in tests {
             let program = test_parse(input);
-
-            println!("{:#?}", program);
 
             assert_eq!(expected_string, program.to_string());
             assert!(!program.statements.is_empty());

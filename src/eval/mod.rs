@@ -119,7 +119,11 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_infix_expression(operator, left, right)
             }
-            Expression::Index(_, _) => Err(EvalError::NotImplementedYet(format!("index exprs"))),
+            Expression::Index(left, index) => {
+                let left = self.eval_expression(left)?;
+                let index = self.eval_expression(index)?;
+                self.eval_index_expression(left, index)
+            }
             Expression::If(condition, consequence, alternative) => {
                 self.eval_if_expression(condition, consequence, alternative)
             }
@@ -204,6 +208,22 @@ impl Interpreter {
                 left = left,
                 operator = operator,
                 right = right
+            ))),
+        }
+    }
+
+    fn eval_index_expression(&mut self, left: Rc<IR>, index: Rc<IR>) -> EvalResult {
+        match (&*left, &*index) {
+            (IR::Array(values), IR::Integer(index)) => {
+                let index = *index as usize;
+                match values.get(index) {
+                    Some(ir) => Ok(Rc::clone(ir)),
+                    None => Ok(Rc::new(NULL)),
+                }
+            }
+            (left, _) => Err(EvalError::InvalidExpression(format!(
+                "Index operator not supported: {}",
+                left
             ))),
         }
     }
@@ -692,6 +712,48 @@ mod tests {
                                 assert_eq!(int, expected[i] as IntegerSize);
                             }
                         }
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_array_index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][0];", Some(1)),
+            // ("[1, 2, 3][1];", Some(2)),
+            // ("[1, 2, 3][2];", Some(3)),
+            // ("let i = 0; [1][i];", Some(1)),
+            // ("[1, 2, 3][1 + 1];", Some(3)),
+            // ("let myArray = [1, 2, 3]; myArray[2];", Some(3)),
+            // (
+            //     "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+            //     Some(6),
+            // ),
+            // (
+            //     "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
+            //     Some(2),
+            // ),
+            // ("[1, 2, 3][3]", None),
+            // ("[1, 2, 3][-1]", None),
+        ];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Integer(value) => {
+                        assert_eq!(&expected.unwrap(), value);
+                    }
+                    IR::Null => {
+                        assert!(expected.is_none());
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);

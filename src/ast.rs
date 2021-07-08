@@ -165,7 +165,7 @@ impl fmt::Display for Expression {
                 "[{}]",
                 expressions
                     .iter()
-                    .map(|arg| arg.to_string())
+                    .map(|expression| expression.to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
