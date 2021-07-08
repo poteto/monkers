@@ -8,7 +8,7 @@ pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
     read_position: usize,
-    pub ch: char,
+    pub ch: Option<char>,
     pub row: usize,
     pub col: usize,
 }
@@ -20,7 +20,7 @@ impl<'a> Lexer<'a> {
             input,
             position: 0,
             read_position: 0,
-            ch: '0',
+            ch: None,
             row: 1,
             col: 0,
         };
@@ -28,21 +28,19 @@ impl<'a> Lexer<'a> {
         lexer
     }
 
-    fn peek_char(&self) -> Result<char, &str> {
-        if self.read_position >= self.input.len() {
-            Ok('0')
-        } else if let Some(ch) = self.input.chars().nth(self.read_position) {
-            Ok(ch)
+    fn peek_char(&self) -> Option<char> {
+        if let Some(ch) = self.input.chars().nth(self.read_position) {
+            Some(ch)
         } else {
-            Err("peeked out of range character")
+            None
         }
     }
 
     fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
-            self.ch = '0';
+            self.ch = None;
         } else if let Some(ch) = self.input.chars().nth(self.read_position) {
-            self.ch = ch;
+            self.ch = Some(ch);
         } else {
             panic!("read out of range character");
         }
@@ -52,8 +50,11 @@ impl<'a> Lexer<'a> {
     }
 
     fn handle_whitespace(&mut self) {
-        while self.ch.is_ascii_whitespace() {
-            if self.ch == '\n' || self.ch == '\r' {
+        while let Some(ch) = self.ch {
+            if !ch.is_ascii_whitespace() {
+                break;
+            }
+            if matches!(self.ch, Some('\n') | Some('\r')) {
                 self.col = 0;
                 self.row += 1;
             }
@@ -63,7 +64,10 @@ impl<'a> Lexer<'a> {
 
     fn read_identifier(&mut self) -> &str {
         let position = self.position;
-        while self.ch.is_ascii_alphabetic() {
+        while let Some(ch) = self.ch {
+            if !ch.is_ascii_alphabetic() {
+                break;
+            }
             self.read_char();
         }
         &self.input[position..self.position]
@@ -72,7 +76,10 @@ impl<'a> Lexer<'a> {
     fn read_string(&mut self) -> &str {
         let position = self.position + 1;
         self.read_char();
-        while self.ch != '"' && self.ch != '0' {
+        while let Some(ch) = self.ch {
+            if ch == '"' {
+                break;
+            }
             self.read_char();
         }
         &self.input[position..self.position]
@@ -80,14 +87,17 @@ impl<'a> Lexer<'a> {
 
     fn read_number(&mut self) -> &str {
         let position = self.position;
-        while self.ch.is_ascii_digit() {
+        while let Some(ch) = self.ch {
+            if !ch.is_ascii_digit() {
+                break;
+            }
             self.read_char();
         }
         &self.input[position..self.position]
     }
 
     pub fn is_end_of_file(&self) -> bool {
-        self.read_position >= self.input.len() && self.ch == '0'
+        self.read_position >= self.input.len() && self.ch == None
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -97,55 +107,56 @@ impl<'a> Lexer<'a> {
         self.handle_whitespace();
         let token: Token;
         match self.ch {
-            '0' => token = Token::EndOfFile,
-
             // '=='
-            '=' if self.peek_char().unwrap() == '=' => {
+            Some('=') if self.peek_char().unwrap() == '=' => {
                 self.read_char(); // consume '=' after first '='
                 token = Token::Equal
             }
-            '=' => token = Token::Assign,
-            '+' => token = Token::Plus,
-            '-' => token = Token::Minus,
+            Some('=') => token = Token::Assign,
+            Some('+') => token = Token::Plus,
+            Some('-') => token = Token::Minus,
             // '!='
-            '!' if self.peek_char().unwrap() == '=' => {
+            Some('!') if self.peek_char().unwrap() == '=' => {
                 self.read_char(); // consume '=' after first '!'
                 token = Token::NotEqual
             }
-            '!' => token = Token::Bang,
-            '*' => token = Token::Asterisk,
-            '/' => token = Token::Slash,
+            Some('!') => token = Token::Bang,
+            Some('*') => token = Token::Asterisk,
+            Some('/') => token = Token::Slash,
 
-            '<' => token = Token::LessThan,
-            '>' => token = Token::GreaterThan,
+            Some('<') => token = Token::LessThan,
+            Some('>') => token = Token::GreaterThan,
 
-            ',' => token = Token::Comma,
-            ';' => token = Token::Semicolon,
-            '(' => token = Token::Lparen,
-            ')' => token = Token::Rparen,
-            '{' => token = Token::Lbrace,
-            '}' => token = Token::Rbrace,
+            Some(',') => token = Token::Comma,
+            Some(';') => token = Token::Semicolon,
+            Some('(') => token = Token::Lparen,
+            Some(')') => token = Token::Rparen,
+            Some('{') => token = Token::Lbrace,
+            Some('}') => token = Token::Rbrace,
+            Some('[') => token = Token::Lbracket,
+            Some(']') => token = Token::Rbracket,
 
-            '"' => {
+            Some('"') => {
                 let interner = Rc::clone(&self.interner);
                 let literal = self.read_string();
                 token = Token::String(interner.borrow_mut().get_or_intern(literal));
             }
 
-            _ if self.ch.is_ascii_alphabetic() => {
+            Some(ch) if ch.is_ascii_alphabetic() => {
                 let interner = Rc::clone(&self.interner);
                 let literal = self.read_identifier();
                 // early return as we don't need to call `read_char` again past the `match` statement
                 return lookup_identifier(interner, literal);
             }
-            _ if self.ch.is_ascii_digit() => {
+            Some(ch) if ch.is_ascii_digit() => {
                 let literal = self.read_number();
                 match literal.parse::<IntegerSize>() {
                     Ok(i) => return Token::Integer(i),
                     Err(error) => panic!("{}", error),
                 }
             }
-            _ => token = Token::Illegal(self.ch),
+            Some(ch) => token = Token::Illegal(ch),
+            None => token = Token::EndOfFile,
         };
         self.read_char();
         token
@@ -238,6 +249,7 @@ mod tests {
         10 != 9;
         "foobar";
         "foo bar";
+        [1, 2][0];
         "#;
         let interner = Rc::new(RefCell::new(StringInterner::default()));
         let test_interner = Rc::clone(&interner);
@@ -321,6 +333,15 @@ mod tests {
             Token::Semicolon,
             Token::String(test_interner.get_or_intern("foo bar")),
             Token::Semicolon,
+            Token::Lbracket,
+            Token::Integer(1),
+            Token::Comma,
+            Token::Integer(2),
+            Token::Rbracket,
+            Token::Lbracket,
+            Token::Integer(0),
+            Token::Rbracket,
+            Token::Semicolon,
             Token::EndOfFile,
         ];
         drop(test_interner);
@@ -341,18 +362,18 @@ mod tests {
     fn it_keeps_track_of_row_and_col() {
         let input = r#"let hello = 1;
 let world = 2;"#;
-        let expected: Vec<(char, usize, usize)> = vec![
-            ('l', 1, 1),
-            (' ', 1, 4),
-            (' ', 1, 10),
-            (' ', 1, 12),
-            (';', 1, 14),
-            ('\n', 1, 15),
-            (' ', 2, 4),
-            (' ', 2, 10),
-            (' ', 2, 12),
-            (';', 2, 14),
-            ('0', 2, 15),
+        let expected = vec![
+            (Some('l'), 1, 1),
+            (Some(' '), 1, 4),
+            (Some(' '), 1, 10),
+            (Some(' '), 1, 12),
+            (Some(';'), 1, 14),
+            (Some('\n'), 1, 15),
+            (Some(' '), 2, 4),
+            (Some(' '), 2, 10),
+            (Some(' '), 2, 12),
+            (Some(';'), 2, 14),
+            (None, 2, 15),
         ];
         let interner = Rc::new(RefCell::new(StringInterner::default()));
         let mut lexer = Lexer::new(input, Rc::clone(&interner));

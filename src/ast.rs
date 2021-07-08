@@ -80,6 +80,10 @@ pub enum Expression {
         Box<Expression>, // Left
         Box<Expression>, // Right
     ),
+    Index(
+        Box<Expression>, // Left
+        Box<Expression>, // Index
+    ),
 
     If(
         Box<Expression>,        // Condition
@@ -94,6 +98,8 @@ pub enum Expression {
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
     ),
+
+    Array(Vec<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -115,6 +121,9 @@ impl fmt::Display for Expression {
                 operator = operator,
                 right = right
             ),
+            Expression::Index(left, index) => {
+                write!(f, "({left}[{index}])", left = left, index = index)
+            }
             Expression::If(condition, consequence, alternative) => {
                 if let (condition, Some(consequence)) = (condition, consequence) {
                     write!(
@@ -148,6 +157,15 @@ impl fmt::Display for Expression {
                 args = arguments
                     .iter()
                     .map(|arg| arg.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Array(expressions) => write!(
+                f,
+                "[{}]",
+                expressions
+                    .iter()
+                    .map(|expression| expression.to_string())
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
