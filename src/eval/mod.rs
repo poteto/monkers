@@ -8,8 +8,8 @@ pub use crate::eval::env::Env;
 use crate::{
     ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
-    eval::ir::IR,
-    token::Token,
+    eval::ir::{BuiltIn, IR},
+    token::{IntegerSize, Token},
 };
 
 use std::{cell::RefCell, mem, rc::Rc};
@@ -91,7 +91,10 @@ impl Interpreter {
                         let identifier = interner
                             .resolve(*identifier_key)
                             .expect("Identifier should have been interned");
-                        Err(EvalError::UnknownIdentifier(format!("{}", identifier)))
+                        match identifier {
+                            "len" => Ok(Rc::new(IR::StdLib(BuiltIn::Len))),
+                            _ => Err(EvalError::UnknownIdentifier(format!("{}", identifier))),
+                        }
                     }
                 }
             }
@@ -224,7 +227,32 @@ impl Interpreter {
                 self.env = Rc::new(RefCell::new(env));
                 self.eval_block_statement(body)
             }
+            IR::StdLib(built_in) => self.eval_built_in(built_in, arguments),
             ir => Err(EvalError::TypeError(format!("{} is not a function", ir))),
+        }
+    }
+
+    fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &Vec<Rc<IR>>) -> EvalResult {
+        match built_in {
+            BuiltIn::Len => {
+                if arguments.len() != 1 {
+                    return Err(EvalError::InvalidExpression(format!(
+                        "Wrong number of arguments, got {}, expected 1",
+                        arguments.len()
+                    )));
+                }
+                match arguments.first() {
+                    Some(first) => match &*Rc::clone(first) {
+                        IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
+                        ir => Err(EvalError::TypeError(format!(
+                            "Argument to {} not supported, got {}",
+                            BuiltIn::Len,
+                            ir
+                        ))),
+                    },
+                    None => unreachable!("Expected 1 argument to {}", BuiltIn::Len),
+                }
+            }
         }
     }
 
@@ -597,6 +625,44 @@ mod tests {
                 },
                 Err(err) => {
                     panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_built_in_functions() {
+        let tests = vec![
+            ("len(\"\");", Ok(0)),
+            ("len(\"four\");", Ok(4)),
+            ("len(\"hello world\");", Ok(11)),
+            (
+                "len(1);",
+                Err(String::from(
+                    "Type Error: Argument to len not supported, got 1",
+                )),
+            ),
+            (
+                "len(\"one\", \"two\");",
+                Err(String::from(
+                    "Invalid Expression: Wrong number of arguments, got 2, expected 1",
+                )),
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Integer(value) => {
+                        assert_eq!(&expected.unwrap(), value);
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    assert_eq!(expected.err(), Some(err.to_string()));
                 }
             }
         }
