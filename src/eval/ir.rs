@@ -19,6 +19,7 @@ pub enum IR {
         Rc<RefCell<Env>>,    // Env
     ),
     String(String),
+    Array(Vec<Rc<IR>>),
     StdLib(BuiltIn),
 }
 
@@ -33,6 +34,14 @@ impl fmt::Display for IR {
             IR::Function(_, _, _) => Ok(()),
             IR::String(ir) => ir.fmt(f),
             IR::StdLib(bi) => bi.fmt(f),
+            IR::Array(irs) => write!(
+                f,
+                "[{}]",
+                irs.iter()
+                    .map(|ir| ir.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }

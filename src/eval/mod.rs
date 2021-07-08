@@ -81,6 +81,16 @@ impl Interpreter {
         Ok(result)
     }
 
+    fn eval_expressions(
+        &mut self,
+        expressions: &Vec<Expression>,
+    ) -> Result<Vec<Rc<IR>>, EvalError> {
+        expressions
+            .iter()
+            .map(|arg| self.eval_expression(arg))
+            .collect::<Result<Vec<Rc<IR>>, _>>()
+    }
+
     fn eval_expression(&mut self, expression: &Expression) -> EvalResult {
         match expression {
             Expression::Identifier(Identifier(identifier_key)) => {
@@ -120,10 +130,7 @@ impl Interpreter {
             ))),
             Expression::Call(function, arguments) => {
                 let function = self.eval_expression(function)?;
-                let evaluated_args = arguments
-                    .iter()
-                    .map(|arg| self.eval_expression(arg))
-                    .collect::<Result<Vec<Rc<IR>>, _>>()?;
+                let evaluated_args = self.eval_expressions(arguments)?;
                 self.eval_call_expression(function, &evaluated_args)
             }
             Expression::String(string_key) => {
@@ -131,7 +138,7 @@ impl Interpreter {
                 let value = interner.resolve(*string_key).unwrap();
                 Ok(Rc::new(IR::String(value.to_string())))
             }
-            Expression::Array(_) => Err(EvalError::NotImplementedYet(format!("arrays"))),
+            Expression::Array(values) => Ok(Rc::new(IR::Array(self.eval_expressions(values)?))),
         }
     }
 
@@ -283,6 +290,7 @@ mod tests {
     use crate::eval::{ir::IR, Env, Interpreter};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
+    use crate::token::IntegerSize;
 
     use super::EvalResult;
 
@@ -665,6 +673,32 @@ mod tests {
                 },
                 Err(err) => {
                     assert_eq!(expected.err(), Some(err.to_string()));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_array_literals() {
+        let tests = vec![("[1, 2 * 2, 3 + 3];", vec![1, 4, 6])];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Array(values) => {
+                        for (i, value) in values.iter().enumerate() {
+                            if let IR::Integer(int) = **value {
+                                assert_eq!(int, expected[i] as IntegerSize);
+                            }
+                        }
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
                 }
             }
         }
