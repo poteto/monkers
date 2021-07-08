@@ -80,6 +80,10 @@ pub enum Expression {
         Box<Expression>, // Left
         Box<Expression>, // Right
     ),
+    Index(
+        Box<Expression>, // Left
+        Box<Expression>, // Index
+    ),
 
     If(
         Box<Expression>,        // Condition
@@ -117,6 +121,9 @@ impl fmt::Display for Expression {
                 operator = operator,
                 right = right
             ),
+            Expression::Index(left, index) => {
+                write!(f, "({left}[{index}])", left = left, index = index)
+            }
             Expression::If(condition, consequence, alternative) => {
                 if let (condition, Some(consequence)) = (condition, consequence) {
                     write!(

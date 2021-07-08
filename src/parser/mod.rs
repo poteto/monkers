@@ -19,6 +19,7 @@ enum Precedence {
     Product,
     Prefix,
     Call,
+    Index,
 }
 
 fn precedence_for(token: &Token) -> Precedence {
@@ -28,6 +29,7 @@ fn precedence_for(token: &Token) -> Precedence {
         Token::Plus | Token::Minus => Precedence::Sum,
         Token::Slash | Token::Asterisk => Precedence::Product,
         Token::Lparen => Precedence::Call,
+        Token::Lbracket => Precedence::Index,
         _ => Precedence::Lowest,
     }
 }
@@ -254,6 +256,7 @@ impl<'a> Parser<'a> {
             | Token::LessThan
             | Token::GreaterThan => self.parse_infix_expression(left),
             Token::Lparen => self.parse_call_expression(left),
+            Token::Lbracket => self.parse_index_expression(left),
             _ => Err(ParserError::UnhandledInfixOperator(self.curr_token.clone())),
         }
     }
@@ -276,6 +279,16 @@ impl<'a> Parser<'a> {
             Box::new(left),
             Box::new(self.parse_expression(precedence)?),
         ))
+    }
+
+    fn parse_index_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
+        self.next_token();
+        let expression = Expression::Index(
+            Box::new(left),
+            Box::new(self.parse_expression(Precedence::Lowest)?),
+        );
+        self.expect_peek(Token::Rbracket)?;
+        Ok(expression)
     }
 
     fn parse_expression_list(&mut self, end: Token) -> Result<Vec<Expression>, ParserError> {
@@ -515,6 +528,8 @@ mod tests {
             ("2 / (5 + 5);", "(2 / (5 + 5))"),
             ("-(5 + 5);", "(-(5 + 5))"),
             ("!(true == true);", "(!(true == true))"),
+            ("a * [1, 2, 3, 4][b * c] * d;", "((Identifier(0) * ([1, 2, 3, 4][(Identifier(1) * Identifier(2))])) * Identifier(3))"),
+            ("add(a * b[2], b[1], 2 * [1, 2][1]);", "Identifier(0)((Identifier(1) * (Identifier(2)[2])), (Identifier(2)[1]), (2 * ([1, 2][1])))"),
         ];
 
         for (input, expected_string) in tests {
@@ -592,6 +607,21 @@ mod tests {
     #[test]
     fn it_parses_array_literals() {
         let tests = vec![("[1, 2 * 2, 3 + 3];", "[1, (2 * 2), (3 + 3)]")];
+
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
+
+            println!("{:#?}", program);
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_index_expressions() {
+        let tests = vec![("myArray[1 + 1]", "(Identifier(0)[(1 + 1)])")];
 
         for (input, expected_string) in tests {
             let program = test_parse(input);

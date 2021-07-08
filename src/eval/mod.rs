@@ -109,6 +109,7 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_infix_expression(operator, left, right)
             }
+            Expression::Index(_, _) => Err(EvalError::NotImplementedYet(format!("index exprs"))),
             Expression::If(condition, consequence, alternative) => {
                 self.eval_if_expression(condition, consequence, alternative)
             }
