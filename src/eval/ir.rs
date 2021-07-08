@@ -6,7 +6,7 @@ use crate::{
     token::IntegerSize,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum IR {
     Nothing,
     Integer(IntegerSize),
@@ -19,6 +19,7 @@ pub enum IR {
         Rc<RefCell<Env>>,    // Env
     ),
     String(String),
+    StdLib(BuiltIn),
 }
 
 impl fmt::Display for IR {
@@ -31,6 +32,7 @@ impl fmt::Display for IR {
             IR::ReturnValue(ir) => ir.fmt(f),
             IR::Function(_, _, _) => Ok(()),
             IR::String(ir) => ir.fmt(f),
+            IR::StdLib(bi) => bi.fmt(f),
         }
     }
 }
@@ -42,6 +44,19 @@ impl PartialEq for IR {
             (IR::Boolean(a), IR::Boolean(b)) => a == b,
             (IR::Null, IR::Null) => true,
             _ => false,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum BuiltIn {
+    Len,
+}
+
+impl fmt::Display for BuiltIn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            BuiltIn::Len => write!(f, "len"),
         }
     }
 }
