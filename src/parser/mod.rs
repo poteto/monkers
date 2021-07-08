@@ -234,6 +234,9 @@ impl<'a> Parser<'a> {
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
             Token::String(string_key) => Ok(Expression::String(*string_key)),
+            Token::Lbracket => Ok(Expression::Array(
+                self.parse_expression_list(Token::Rbracket)?,
+            )),
             _ => Err(ParserError::UnhandledPrefixOperator(
                 self.curr_token.clone(),
             )),
@@ -275,31 +278,28 @@ impl<'a> Parser<'a> {
         ))
     }
 
-    fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
-        Ok(Expression::Call(
-            Box::new(left),
-            self.parse_call_arguments()?,
-        ))
-    }
-
-    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>, ParserError> {
+    fn parse_expression_list(&mut self, end: Token) -> Result<Vec<Expression>, ParserError> {
         let mut arguments: Vec<Expression> = Vec::new();
-        if self.peek_token == Token::Rparen {
+        if self.peek_token == end {
             self.next_token();
             return Ok(arguments);
         }
-
         self.next_token();
         arguments.push(self.parse_expression(Precedence::Lowest)?);
-
         while self.peek_token == Token::Comma {
             self.next_token();
             self.next_token();
             arguments.push(self.parse_expression(Precedence::Lowest)?);
         }
-
-        self.expect_peek(Token::Rparen)?;
+        self.expect_peek(end)?;
         Ok(arguments)
+    }
+
+    fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
+        Ok(Expression::Call(
+            Box::new(left),
+            self.parse_expression_list(Token::Rparen)?,
+        ))
     }
 
     fn parse_syntax_error(&self, message: String) -> ParserError {
@@ -577,6 +577,21 @@ mod tests {
     #[test]
     fn it_parses_string_literals() {
         let tests = vec![("\"hello world\";", "String(0)")];
+
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
+
+            println!("{:#?}", program);
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_array_literals() {
+        let tests = vec![("[1, 2 * 2, 3 + 3];", "[1, (2 * 2), (3 + 3)]")];
 
         for (input, expected_string) in tests {
             let program = test_parse(input);

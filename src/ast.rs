@@ -94,6 +94,8 @@ pub enum Expression {
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
     ),
+
+    Array(Vec<Expression>),
 }
 
 impl fmt::Display for Expression {
@@ -146,6 +148,15 @@ impl fmt::Display for Expression {
                 "{func}({args})",
                 func = function,
                 args = arguments
+                    .iter()
+                    .map(|arg| arg.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Array(expressions) => write!(
+                f,
+                "[{}]",
+                expressions
                     .iter()
                     .map(|arg| arg.to_string())
                     .collect::<Vec<String>>()

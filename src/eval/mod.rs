@@ -130,6 +130,7 @@ impl Interpreter {
                 let value = interner.resolve(*string_key).unwrap();
                 Ok(Rc::new(IR::String(value.to_string())))
             }
+            Expression::Array(_) => Err(EvalError::NotImplementedYet(format!("arrays"))),
         }
     }
 
