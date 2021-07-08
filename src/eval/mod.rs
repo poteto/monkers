@@ -139,7 +139,9 @@ impl Interpreter {
             }
             Expression::String(string_key) => {
                 let interner = self.interner.borrow_mut();
-                let value = interner.resolve(*string_key).unwrap();
+                let value = interner
+                    .resolve(*string_key)
+                    .expect("String should have been interned");
                 Ok(Rc::new(IR::String(value.to_string())))
             }
             Expression::Array(values) => Ok(Rc::new(IR::Array(self.eval_expressions(values)?))),

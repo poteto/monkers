@@ -14,7 +14,7 @@ pub enum IR {
     Null,
     ReturnValue(Rc<IR>),
     Function(
-        Rc<Vec<Identifier>>, // Paramters
+        Rc<Vec<Identifier>>, // Parameters
         Rc<Statement>,       // Body
         Rc<RefCell<Env>>,    // Env
     ),
