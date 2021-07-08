@@ -728,21 +728,21 @@ mod tests {
     fn it_evaluates_array_index_expressions() {
         let tests = vec![
             ("[1, 2, 3][0];", Some(1)),
-            // ("[1, 2, 3][1];", Some(2)),
-            // ("[1, 2, 3][2];", Some(3)),
-            // ("let i = 0; [1][i];", Some(1)),
-            // ("[1, 2, 3][1 + 1];", Some(3)),
-            // ("let myArray = [1, 2, 3]; myArray[2];", Some(3)),
-            // (
-            //     "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
-            //     Some(6),
-            // ),
-            // (
-            //     "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
-            //     Some(2),
-            // ),
-            // ("[1, 2, 3][3]", None),
-            // ("[1, 2, 3][-1]", None),
+            ("[1, 2, 3][1];", Some(2)),
+            ("[1, 2, 3][2];", Some(3)),
+            ("let i = 0; [1][i];", Some(1)),
+            ("[1, 2, 3][1 + 1];", Some(3)),
+            ("let myArray = [1, 2, 3]; myArray[2];", Some(3)),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                Some(6),
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i];",
+                Some(2),
+            ),
+            ("[1, 2, 3][3]", None),
+            ("[1, 2, 3][-1]", None),
         ];
 
         for (input, expected) in tests {
