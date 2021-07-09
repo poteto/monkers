@@ -275,6 +275,7 @@ impl Interpreter {
                 match arguments.first() {
                     Some(first) => match &*Rc::clone(first) {
                         IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
+                        IR::Array(values) => Ok(Rc::new(IR::Integer(values.len() as IntegerSize))),
                         ir => Err(EvalError::TypeError(format!(
                             "Argument to {} not supported, got {}",
                             BuiltIn::Len,
