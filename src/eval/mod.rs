@@ -1,6 +1,7 @@
 mod env;
 mod error;
 mod ir;
+mod validate;
 
 use string_interner::StringInterner;
 
@@ -9,6 +10,7 @@ use crate::{
     ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
     eval::ir::{BuiltIn, IR},
+    eval::validate::ValidateArgs,
     token::{IntegerSize, Token},
 };
 
@@ -103,6 +105,10 @@ impl Interpreter {
                             .expect("Identifier should have been interned");
                         match identifier {
                             "len" => Ok(Rc::new(IR::StdLib(BuiltIn::Len))),
+                            "last" => Ok(Rc::new(IR::StdLib(BuiltIn::Last))),
+                            "head" => Ok(Rc::new(IR::StdLib(BuiltIn::Head))),
+                            "tail" => Ok(Rc::new(IR::StdLib(BuiltIn::Tail))),
+                            "push" => Ok(Rc::new(IR::StdLib(BuiltIn::Push))),
                             _ => Err(EvalError::UnknownIdentifier(format!("{}", identifier))),
                         }
                     }
@@ -266,25 +272,103 @@ impl Interpreter {
     fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &Vec<Rc<IR>>) -> EvalResult {
         match built_in {
             BuiltIn::Len => {
-                if arguments.len() != 1 {
-                    return Err(EvalError::InvalidExpression(format!(
-                        "Wrong number of arguments, got {}, expected 1",
-                        arguments.len()
-                    )));
-                }
-                match arguments.first() {
-                    Some(first) => match &*Rc::clone(first) {
-                        IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
-                        IR::Array(values) => Ok(Rc::new(IR::Integer(values.len() as IntegerSize))),
-                        ir => Err(EvalError::TypeError(format!(
-                            "Argument to {} not supported, got {}",
-                            BuiltIn::Len,
-                            ir
-                        ))),
-                    },
-                    None => unreachable!("Expected 1 argument to {}", BuiltIn::Len),
+                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                match &*arguments[0] {
+                    IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
+                    IR::Array(values) => Ok(Rc::new(IR::Integer(values.len() as IntegerSize))),
+                    ir => Err(EvalError::TypeError(format!(
+                        "Argument to {} not supported, got {}",
+                        BuiltIn::Len,
+                        ir
+                    ))),
                 }
             }
+            BuiltIn::Last => {
+                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                match &*arguments[0] {
+                    IR::Array(values) => match values.last() {
+                        Some(last) => Ok(Rc::clone(last)),
+                        None => Ok(Rc::new(IR::Null)),
+                    },
+                    ir => Err(EvalError::TypeError(format!(
+                        "Argument to {} not supported, got {}",
+                        BuiltIn::Last,
+                        ir
+                    ))),
+                }
+            }
+            BuiltIn::Head => {
+                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                match &*arguments[0] {
+                    IR::Array(values) => match values.first() {
+                        Some(head) => Ok(Rc::clone(head)),
+                        None => Ok(Rc::new(IR::Null)),
+                    },
+                    ir => Err(EvalError::TypeError(format!(
+                        "Argument to {} not supported, got {}",
+                        BuiltIn::Head,
+                        ir
+                    ))),
+                }
+            }
+            BuiltIn::Tail => {
+                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                match &*arguments[0] {
+                    IR::Array(values) => match values.split_first() {
+                        Some((_, tail)) => Ok(Rc::new(IR::Array(tail.to_vec()))),
+                        None => Ok(Rc::new(IR::Null)),
+                    },
+                    ir => Err(EvalError::TypeError(format!(
+                        "Argument to {} not supported, got {}",
+                        BuiltIn::Tail,
+                        ir
+                    ))),
+                }
+            }
+            BuiltIn::Push => {
+                self.expect_arguments_length(arguments, ValidateArgs::GreaterThanEqual(2))?;
+                if let Some((head, tail)) = arguments.split_first() {
+                    match &*Rc::clone(head) {
+                        IR::Array(values) => {
+                            let mut values = values.clone();
+                            values.append(&mut tail.to_vec());
+                            Ok(Rc::new(IR::Array(values)))
+                        }
+                        ir => Err(EvalError::TypeError(format!(
+                            "Argument to {} not supported, got {}",
+                            BuiltIn::Push,
+                            ir
+                        ))),
+                    }
+                } else {
+                    Err(EvalError::TypeError(format!("whatever")))
+                }
+            }
+        }
+    }
+
+    fn expect_arguments_length(
+        &self,
+        arguments: &Vec<Rc<IR>>,
+        expected: ValidateArgs,
+    ) -> Result<(), EvalError> {
+        let is_valid = match expected {
+            ValidateArgs::Zero => arguments.is_empty(),
+            ValidateArgs::Exact(expected_length) => arguments.len() == expected_length,
+            ValidateArgs::GreaterThan(expected_length) => arguments.len() > expected_length,
+            ValidateArgs::GreaterThanEqual(expected_length) => arguments.len() >= expected_length,
+            ValidateArgs::LessThan(expected_length) => arguments.len() < expected_length,
+            ValidateArgs::LessThanEqual(expected_length) => arguments.len() <= expected_length,
+            ValidateArgs::Unchecked => true,
+        };
+        if is_valid {
+            Ok(())
+        } else {
+            Err(EvalError::InvalidExpression(format!(
+                "Wrong number of arguments, got {}, expected {}",
+                arguments.len(),
+                expected
+            )))
         }
     }
 
@@ -664,11 +748,12 @@ mod tests {
     }
 
     #[test]
-    fn it_evaluates_built_in_functions() {
+    fn it_evaluates_built_in_len() {
         let tests = vec![
             ("len(\"\");", Ok(0)),
             ("len(\"four\");", Ok(4)),
             ("len(\"hello world\");", Ok(11)),
+            ("len([1, 2, 3]);", Ok(3)),
             (
                 "len(1);",
                 Err(String::from(
@@ -678,7 +763,7 @@ mod tests {
             (
                 "len(\"one\", \"two\");",
                 Err(String::from(
-                    "Invalid Expression: Wrong number of arguments, got 2, expected 1",
+                    "Invalid Expression: Wrong number of arguments, got 2, expected exactly 1",
                 )),
             ),
         ];
@@ -696,6 +781,48 @@ mod tests {
                 },
                 Err(err) => {
                     assert_eq!(expected.err(), Some(err.to_string()));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_stdlib_array_functions() {
+        let tests = vec![(
+            r#"
+            let map = fn(arr, f) {
+                let iter = fn(arr, acc) {
+                    if (len(arr) == 0) {
+                        acc
+                    } else {
+                        iter(tail(arr), push(acc, f(head(arr))));
+                    }
+                };
+                iter(arr, []);
+            };
+            let a = [1, 2, 3, 4];
+            map(a, fn(x) { x * 2 });
+            "#,
+            vec![2, 4, 6, 8],
+        )];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Array(values) => {
+                        for (i, value) in values.iter().enumerate() {
+                            if let IR::Integer(int) = **value {
+                                assert_eq!(int, expected[i] as IntegerSize);
+                            }
+                        }
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
                 }
             }
         }

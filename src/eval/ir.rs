@@ -60,12 +60,20 @@ impl PartialEq for IR {
 #[derive(Debug)]
 pub enum BuiltIn {
     Len,
+    Last,
+    Head,
+    Tail,
+    Push,
 }
 
 impl fmt::Display for BuiltIn {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             BuiltIn::Len => write!(f, "len"),
+            BuiltIn::Last => write!(f, "last"),
+            BuiltIn::Head => write!(f, "head"),
+            BuiltIn::Tail => write!(f, "tail"),
+            BuiltIn::Push => write!(f, "push"),
         }
     }
 }
