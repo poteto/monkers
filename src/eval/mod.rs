@@ -347,9 +347,9 @@ impl Interpreter {
         }
     }
 
-    fn expect_arguments_length(
+    fn expect_arguments_length<T>(
         &self,
-        arguments: &Vec<Rc<IR>>,
+        arguments: &Vec<T>,
         expected: ValidateLength,
     ) -> Result<(), EvalError> {
         let is_valid = match expected {
