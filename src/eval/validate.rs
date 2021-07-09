@@ -1,7 +1,7 @@
 use std::fmt;
 
 #[allow(dead_code)]
-pub enum ValidateArgs {
+pub enum ValidateLength {
     Zero,
     Exact(usize),
     GreaterThan(usize),
@@ -11,16 +11,16 @@ pub enum ValidateArgs {
     Unchecked,
 }
 
-impl fmt::Display for ValidateArgs {
+impl fmt::Display for ValidateLength {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ValidateArgs::Zero => write!(f, "exactly 0"),
-            ValidateArgs::Exact(n) => write!(f, "exactly {}", n),
-            ValidateArgs::GreaterThan(n) => write!(f, "greater than {}", n),
-            ValidateArgs::GreaterThanEqual(n) => write!(f, "greater than or equal to {}", n),
-            ValidateArgs::LessThan(n) => write!(f, "lesser than {}", n),
-            ValidateArgs::LessThanEqual(n) => write!(f, "lesser than or equal to {}", n),
-            ValidateArgs::Unchecked => write!(f, "any number"),
+            ValidateLength::Zero => write!(f, "exactly 0"),
+            ValidateLength::Exact(n) => write!(f, "exactly {}", n),
+            ValidateLength::GreaterThan(n) => write!(f, "greater than {}", n),
+            ValidateLength::GreaterThanEqual(n) => write!(f, "greater than or equal to {}", n),
+            ValidateLength::LessThan(n) => write!(f, "lesser than {}", n),
+            ValidateLength::LessThanEqual(n) => write!(f, "lesser than or equal to {}", n),
+            ValidateLength::Unchecked => write!(f, "any number"),
         }
     }
 }

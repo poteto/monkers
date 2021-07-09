@@ -10,7 +10,7 @@ use crate::{
     ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
     eval::ir::{BuiltIn, IR},
-    eval::validate::ValidateArgs,
+    eval::validate::ValidateLength,
     token::{IntegerSize, Token},
 };
 
@@ -272,7 +272,7 @@ impl Interpreter {
     fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &Vec<Rc<IR>>) -> EvalResult {
         match built_in {
             BuiltIn::Len => {
-                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
                 match &*arguments[0] {
                     IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
                     IR::Array(values) => Ok(Rc::new(IR::Integer(values.len() as IntegerSize))),
@@ -284,7 +284,7 @@ impl Interpreter {
                 }
             }
             BuiltIn::Last => {
-                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
                 match &*arguments[0] {
                     IR::Array(values) => match values.last() {
                         Some(last) => Ok(Rc::clone(last)),
@@ -298,7 +298,7 @@ impl Interpreter {
                 }
             }
             BuiltIn::Head => {
-                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
                 match &*arguments[0] {
                     IR::Array(values) => match values.first() {
                         Some(head) => Ok(Rc::clone(head)),
@@ -312,7 +312,7 @@ impl Interpreter {
                 }
             }
             BuiltIn::Tail => {
-                self.expect_arguments_length(arguments, ValidateArgs::Exact(1))?;
+                self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
                 match &*arguments[0] {
                     IR::Array(values) => match values.split_first() {
                         Some((_, tail)) => Ok(Rc::new(IR::Array(tail.to_vec()))),
@@ -326,7 +326,7 @@ impl Interpreter {
                 }
             }
             BuiltIn::Push => {
-                self.expect_arguments_length(arguments, ValidateArgs::GreaterThanEqual(2))?;
+                self.expect_arguments_length(arguments, ValidateLength::GreaterThanEqual(2))?;
                 if let Some((head, tail)) = arguments.split_first() {
                     match &*Rc::clone(head) {
                         IR::Array(values) => {
@@ -350,16 +350,16 @@ impl Interpreter {
     fn expect_arguments_length(
         &self,
         arguments: &Vec<Rc<IR>>,
-        expected: ValidateArgs,
+        expected: ValidateLength,
     ) -> Result<(), EvalError> {
         let is_valid = match expected {
-            ValidateArgs::Zero => arguments.is_empty(),
-            ValidateArgs::Exact(expected_length) => arguments.len() == expected_length,
-            ValidateArgs::GreaterThan(expected_length) => arguments.len() > expected_length,
-            ValidateArgs::GreaterThanEqual(expected_length) => arguments.len() >= expected_length,
-            ValidateArgs::LessThan(expected_length) => arguments.len() < expected_length,
-            ValidateArgs::LessThanEqual(expected_length) => arguments.len() <= expected_length,
-            ValidateArgs::Unchecked => true,
+            ValidateLength::Zero => arguments.is_empty(),
+            ValidateLength::Exact(expected_length) => arguments.len() == expected_length,
+            ValidateLength::GreaterThan(expected_length) => arguments.len() > expected_length,
+            ValidateLength::GreaterThanEqual(expected_length) => arguments.len() >= expected_length,
+            ValidateLength::LessThan(expected_length) => arguments.len() < expected_length,
+            ValidateLength::LessThanEqual(expected_length) => arguments.len() <= expected_length,
+            ValidateLength::Unchecked => true,
         };
         if is_valid {
             Ok(())
