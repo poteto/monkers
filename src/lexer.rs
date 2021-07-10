@@ -128,6 +128,7 @@ impl<'a> Lexer<'a> {
             Some('>') => token = Token::GreaterThan,
 
             Some(',') => token = Token::Comma,
+            Some(':') => token = Token::Colon,
             Some(';') => token = Token::Semicolon,
             Some('(') => token = Token::Lparen,
             Some(')') => token = Token::Rparen,
@@ -250,6 +251,7 @@ mod tests {
         "foobar";
         "foo bar";
         [1, 2][0];
+        {"foo": "bar"}
         "#;
         let interner = Rc::new(RefCell::new(StringInterner::default()));
         let test_interner = Rc::clone(&interner);
@@ -342,6 +344,11 @@ mod tests {
             Token::Integer(0),
             Token::Rbracket,
             Token::Semicolon,
+            Token::Lbrace,
+            Token::String(test_interner.get_or_intern("foo")),
+            Token::Colon,
+            Token::String(test_interner.get_or_intern("bar")),
+            Token::Rbrace,
             Token::EndOfFile,
         ];
         drop(test_interner);
