@@ -100,6 +100,7 @@ pub enum Expression {
     ),
 
     Array(Vec<Expression>),
+    Hash(Vec<(Expression, Expression)>),
 }
 
 impl fmt::Display for Expression {
@@ -166,6 +167,15 @@ impl fmt::Display for Expression {
                 expressions
                     .iter()
                     .map(|expression| expression.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
+            Expression::Hash(kv_pairs) => write!(
+                f,
+                "{{{}}}",
+                kv_pairs
+                    .iter()
+                    .map(|(key, value)| format!("{}: {}", key, value))
                     .collect::<Vec<String>>()
                     .join(", ")
             ),

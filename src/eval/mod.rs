@@ -151,6 +151,7 @@ impl Interpreter {
                 Ok(Rc::new(IR::String(value.to_string())))
             }
             Expression::Array(values) => Ok(Rc::new(IR::Array(self.eval_expressions(values)?))),
+            Expression::Hash(_) => Err(EvalError::NotImplementedYet(String::from("hashes"))),
         }
     }
 
