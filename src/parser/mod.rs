@@ -239,6 +239,7 @@ impl<'a> Parser<'a> {
             Token::Lbracket => Ok(Expression::Array(
                 self.parse_expression_list(Token::Rbracket)?,
             )),
+            Token::Lbrace => self.parse_hash_literal(),
             token => Err(ParserError::UnhandledPrefixOperator(token.clone())),
         }
     }
@@ -311,6 +312,25 @@ impl<'a> Parser<'a> {
             Box::new(left),
             self.parse_expression_list(Token::Rparen)?,
         ))
+    }
+
+    fn parse_hash_literal(&mut self) -> Result<Expression, ParserError> {
+        let mut pairs = Vec::new();
+        while self.peek_token != Token::Rbrace {
+            self.next_token();
+            let key = self.parse_expression(Precedence::Lowest)?;
+            self.expect_peek(Token::Colon)?;
+            self.next_token();
+            let value = self.parse_expression(Precedence::Lowest)?;
+            pairs.push((key, value));
+            if self.peek_token != Token::Rbrace {
+                self.expect_peek(Token::Comma)?;
+            } else {
+                break;
+            }
+        }
+        self.expect_peek(Token::Rbrace)?;
+        Ok(Expression::Hash(pairs))
     }
 
     fn parse_syntax_error(&self, message: String) -> ParserError {
@@ -618,6 +638,29 @@ mod tests {
         let tests = vec![
             ("myArray[1 + 1];", "(Identifier(0)[(1 + 1)])"),
             ("[1, 2, 3][0];", "([1, 2, 3][0])"),
+        ];
+
+        for (input, expected_string) in tests {
+            let program = test_parse(input);
+
+            assert_eq!(expected_string, program.to_string());
+            assert!(!program.statements.is_empty());
+            assert!(program.errors.is_empty());
+        }
+    }
+
+    #[test]
+    fn it_parses_hash_literals() {
+        let tests = vec![
+            (
+                "{\"one\": 1, \"two\": 2, \"three\": 3}",
+                "{String(0): 1, String(1): 2, String(2): 3}",
+            ),
+            ("{}", "{}"),
+            (
+                "{\"one\": 0 + 1, \"two\": 10 - 8, \"three\": 15 / 5}",
+                "{String(0): (0 + 1), String(1): (10 - 8), String(2): (15 / 5)}",
+            ),
         ];
 
         for (input, expected_string) in tests {
