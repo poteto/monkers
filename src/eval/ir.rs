@@ -1,4 +1,10 @@
-use std::{cell::RefCell, fmt, rc::Rc};
+use fnv::FnvHashMap;
+use std::{
+    cell::RefCell,
+    fmt,
+    hash::{Hash, Hasher},
+    rc::Rc,
+};
 
 use crate::{
     ast::{Identifier, Statement},
@@ -21,6 +27,7 @@ pub enum IR {
     String(String),
     Array(Vec<Rc<IR>>),
     StdLib(BuiltIn),
+    Hash(FnvHashMap<Rc<IR>, Rc<IR>>),
 }
 
 impl fmt::Display for IR {
@@ -42,6 +49,14 @@ impl fmt::Display for IR {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            IR::Hash(map) => write!(
+                f,
+                "{{{}}}",
+                map.iter()
+                    .map(|(key, value)| format!("{}: {}", key, value))
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
         }
     }
 }
@@ -51,8 +66,22 @@ impl PartialEq for IR {
         match (self, b) {
             (IR::Integer(a), IR::Integer(b)) => a == b,
             (IR::Boolean(a), IR::Boolean(b)) => a == b,
+            (IR::String(a), IR::String(b)) => a == b,
             (IR::Null, IR::Null) => true,
             _ => false,
+        }
+    }
+}
+
+impl Eq for IR {}
+
+impl Hash for IR {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self {
+            IR::Integer(integer) => integer.hash(state),
+            IR::String(string) => string.hash(state),
+            IR::Boolean(boolean) => boolean.hash(state),
+            ir => panic!("Unhashable: {}", ir),
         }
     }
 }
