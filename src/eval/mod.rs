@@ -110,6 +110,7 @@ impl Interpreter {
                             "head" => Ok(Rc::new(IR::StdLib(BuiltIn::Head))),
                             "tail" => Ok(Rc::new(IR::StdLib(BuiltIn::Tail))),
                             "push" => Ok(Rc::new(IR::StdLib(BuiltIn::Push))),
+                            "puts" => Ok(Rc::new(IR::StdLib(BuiltIn::Puts))),
                             _ => Err(EvalError::UnknownIdentifier(format!("{}", identifier))),
                         }
                     }
@@ -366,6 +367,10 @@ impl Interpreter {
                 } else {
                     Err(EvalError::TypeError(format!("whatever")))
                 }
+            }
+            BuiltIn::Puts => {
+                arguments.iter().for_each(|ir| println!("{}", ir));
+                Ok(Rc::new(NULL))
             }
         }
     }
