@@ -10,7 +10,7 @@ pub use crate::eval::env::Env;
 use crate::{
     ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
-    eval::ir::{BuiltIn, IR},
+    eval::ir::{BuiltIn, InternedString, IR},
     eval::validate::ValidateLength,
     token::{IntegerSize, Token},
 };
@@ -144,13 +144,10 @@ impl Interpreter {
                 let evaluated_args = self.eval_expressions(arguments)?;
                 self.eval_call_expression(function, &evaluated_args)
             }
-            Expression::String(string_key) => {
-                let interner = self.interner.borrow_mut();
-                let value = interner
-                    .resolve(*string_key)
-                    .expect("String should have been interned");
-                Ok(Rc::new(IR::String(value.to_string())))
-            }
+            Expression::String(string_key) => Ok(Rc::new(IR::String(InternedString {
+                string_key: *string_key,
+                interner: Rc::clone(&self.interner),
+            }))),
             Expression::Array(values) => Ok(Rc::new(IR::Array(self.eval_expressions(values)?))),
             Expression::Hash(pairs) => self.eval_hash_literal(pairs),
         }
@@ -191,7 +188,15 @@ impl Interpreter {
                 ))),
             },
             (IR::String(left), IR::String(right)) => match operator {
-                Token::Plus => Ok(Rc::new(IR::String(left.clone() + &right))),
+                Token::Plus => {
+                    let concat = format!("{}{}", left, right);
+                    let mut interner = self.interner.borrow_mut();
+                    let string_key = interner.get_or_intern(concat);
+                    Ok(Rc::new(IR::String(InternedString {
+                        string_key,
+                        interner: Rc::clone(&self.interner),
+                    })))
+                }
                 token => Err(EvalError::UnknownOperator(format!(
                     "{left} {operator} {right}",
                     left = left,
@@ -286,7 +291,9 @@ impl Interpreter {
             BuiltIn::Len => {
                 self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
                 match &*arguments[0] {
-                    IR::String(value) => Ok(Rc::new(IR::Integer(value.len() as IntegerSize))),
+                    IR::String(string_key) => Ok(Rc::new(IR::Integer(
+                        string_key.to_string().len() as IntegerSize,
+                    ))),
                     IR::Array(values) => Ok(Rc::new(IR::Integer(values.len() as IntegerSize))),
                     ir => Err(EvalError::TypeError(format!(
                         "Argument to {} not supported, got {}",
@@ -404,7 +411,7 @@ impl Interpreter {
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};
-    use string_interner::StringInterner;
+    use string_interner::{StringInterner};
 
     use crate::eval::{ir::IR, Env, Interpreter};
     use crate::lexer::Lexer;
@@ -746,7 +753,7 @@ mod tests {
             match result {
                 Ok(ir) => match &*ir {
                     IR::String(value) => {
-                        assert_eq!(expected, value);
+                        assert_eq!(expected, value.to_string());
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);
@@ -922,7 +929,7 @@ mod tests {
                 false: 6
             }
             "#,
-            "{one: 1, 4: 4, two: 2, three: 3, true: 5, false: 6}",
+            "{three: 3, 4: 4, false: 6, two: 2, true: 5, one: 1}",
         )];
 
         for (input, expected) in tests {
