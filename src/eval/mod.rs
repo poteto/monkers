@@ -181,6 +181,12 @@ impl Interpreter {
 
     fn eval_infix_expression(&self, operator: &Token, left: Rc<IR>, right: Rc<IR>) -> EvalResult {
         match (&*left, &*right) {
+            (IR::ReturnValue(return_value), _) => {
+                self.eval_infix_expression(operator, Rc::clone(return_value), right)
+            }
+            (_, IR::ReturnValue(return_value)) => {
+                self.eval_infix_expression(operator, left, Rc::clone(return_value))
+            }
             (IR::Integer(left), IR::Integer(right)) => match operator {
                 Token::Plus => Ok(Rc::new(IR::Integer(left + right))),
                 Token::Minus => Ok(Rc::new(IR::Integer(left - right))),
@@ -1013,6 +1019,37 @@ mod tests {
                 Ok(ir) => match &*ir {
                     IR::Quote(value) => {
                         assert_eq!(expected.to_string(), value.to_string());
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_recursive_functions() {
+        let tests = vec![(
+            r#"
+            let fact = fn(n) {
+                if (n < 2) { return 1; }
+                return n * fact(n - 1);
+            }
+            fact(20);
+            "#,
+            2_432_902_008_176_640_000,
+        )];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Integer(value) => {
+                        assert_eq!(&expected, value);
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);
