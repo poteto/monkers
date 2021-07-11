@@ -25,7 +25,9 @@ enum Precedence {
 fn precedence_for(token: &Token) -> Precedence {
     match token {
         Token::Equal | Token::NotEqual => Precedence::Equals,
-        Token::LessThan | Token::GreaterThan => Precedence::LessGreater,
+        Token::LessThan | Token::LessThanEqual | Token::GreaterThan | Token::GreaterThanEqual => {
+            Precedence::LessGreater
+        }
         Token::Plus | Token::Minus => Precedence::Sum,
         Token::Slash | Token::Asterisk => Precedence::Product,
         Token::Lparen => Precedence::Call,
@@ -253,6 +255,8 @@ impl<'a> Parser<'a> {
             | Token::Equal
             | Token::NotEqual
             | Token::LessThan
+            | Token::LessThanEqual
+            | Token::GreaterThanEqual
             | Token::GreaterThan => self.parse_infix_expression(left),
             Token::Lparen => self.parse_call_expression(left),
             Token::Lbracket => self.parse_index_expression(left),
