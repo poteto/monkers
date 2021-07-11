@@ -8,7 +8,7 @@ use std::{
 use string_interner::{symbol::SymbolU32, StringInterner};
 
 use crate::{
-    ast::{Identifier, Statement},
+    ast::{Expression, Identifier, Statement},
     eval::Env,
     token::IntegerSize,
 };
@@ -29,6 +29,7 @@ pub enum IR {
     Array(Vec<Rc<IR>>),
     StdLib(BuiltIn),
     Hash(FnvHashMap<Rc<IR>, Rc<IR>>),
+    Quote(Expression),
 }
 
 impl fmt::Display for IR {
@@ -58,6 +59,7 @@ impl fmt::Display for IR {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            IR::Quote(expression) => write!(f, "QUOTE({})", expression),
         }
     }
 }
