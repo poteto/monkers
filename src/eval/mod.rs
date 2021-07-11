@@ -3,6 +3,7 @@ mod error;
 mod ir;
 mod validate;
 
+use fnv::FnvHashMap;
 use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
@@ -151,7 +152,7 @@ impl Interpreter {
                 Ok(Rc::new(IR::String(value.to_string())))
             }
             Expression::Array(values) => Ok(Rc::new(IR::Array(self.eval_expressions(values)?))),
-            Expression::Hash(_) => Err(EvalError::NotImplementedYet(String::from("hashes"))),
+            Expression::Hash(pairs) => self.eval_hash_literal(pairs),
         }
     }
 
@@ -268,6 +269,16 @@ impl Interpreter {
             IR::StdLib(built_in) => self.eval_built_in(built_in, arguments),
             ir => Err(EvalError::TypeError(format!("{} is not a function", ir))),
         }
+    }
+
+    fn eval_hash_literal(&mut self, pairs: &Vec<(Expression, Expression)>) -> EvalResult {
+        let mut map = FnvHashMap::with_capacity_and_hasher(pairs.len(), Default::default());
+        for (k, v) in pairs {
+            let k = self.eval_expression(k)?;
+            let v = self.eval_expression(v)?;
+            map.insert(k, v);
+        }
+        Ok(Rc::new(IR::Hash(map)))
     }
 
     fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &Vec<Rc<IR>>) -> EvalResult {
@@ -888,6 +899,38 @@ mod tests {
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_hash_literals() {
+        let tests = vec![(
+            r#"
+            let two = "two";
+            {
+                "one": 10 - 9,
+                two: 1 + 1,
+                "thr" + "ee": 6 / 2,
+                4: 4,
+                true: 5,
+                false: 6
+            }
+            "#,
+            "{one: 1, 4: 4, two: 2, three: 3, true: 5, false: 6}",
+        )];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    ir => {
+                        assert_eq!(format!("{}", ir), expected)
                     }
                 },
                 Err(err) => {
