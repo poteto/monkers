@@ -236,6 +236,10 @@ impl Interpreter {
                     None => Ok(Rc::new(NULL)),
                 }
             }
+            (IR::Hash(map), _) => match map.get(&index) {
+                Some(ir) => Ok(Rc::clone(ir)),
+                None => Ok(Rc::new(NULL)),
+            },
             (left, _) => Err(EvalError::InvalidExpression(format!(
                 "Index operator not supported: {}",
                 left
@@ -411,7 +415,7 @@ impl Interpreter {
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc};
-    use string_interner::{StringInterner};
+    use string_interner::StringInterner;
 
     use crate::eval::{ir::IR, Env, Interpreter};
     use crate::lexer::Lexer;
@@ -938,6 +942,39 @@ mod tests {
                 Ok(ir) => match &*ir {
                     ir => {
                         assert_eq!(format!("{}", ir), expected)
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_hash_index_expressions() {
+        let tests = vec![
+            ("{\"foo\": 5}[\"foo\"];", Some(5)),
+            ("{\"foo\": 5}[\"bar\"];", None),
+            ("let key = \"foo\"; {\"foo\": 5}[key];", Some(5)),
+            ("{}[\"foo\"]", None),
+            ("{5: 5}[5]", Some(5)),
+            ("{true: 5}[true]", Some(5)),
+            ("{false: 5}[false]", Some(5)),
+        ];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Integer(value) => {
+                        assert_eq!(&expected.unwrap(), value);
+                    }
+                    IR::Null => {
+                        assert!(expected.is_none());
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
                     }
                 },
                 Err(err) => {
