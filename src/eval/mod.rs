@@ -387,7 +387,6 @@ impl Interpreter {
             ValidateLength::GreaterThanEqual(expected_length) => arguments.len() >= expected_length,
             ValidateLength::LessThan(expected_length) => arguments.len() < expected_length,
             ValidateLength::LessThanEqual(expected_length) => arguments.len() <= expected_length,
-            ValidateLength::Unchecked => true,
         };
         if is_valid {
             Ok(())

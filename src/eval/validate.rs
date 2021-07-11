@@ -8,7 +8,6 @@ pub enum ValidateLength {
     GreaterThanEqual(usize),
     LessThan(usize),
     LessThanEqual(usize),
-    Unchecked,
 }
 
 impl fmt::Display for ValidateLength {
@@ -20,7 +19,6 @@ impl fmt::Display for ValidateLength {
             ValidateLength::GreaterThanEqual(n) => write!(f, "greater than or equal to {}", n),
             ValidateLength::LessThan(n) => write!(f, "lesser than {}", n),
             ValidateLength::LessThanEqual(n) => write!(f, "lesser than or equal to {}", n),
-            ValidateLength::Unchecked => write!(f, "any number"),
         }
     }
 }
