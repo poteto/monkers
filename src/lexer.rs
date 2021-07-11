@@ -107,33 +107,43 @@ impl<'a> Lexer<'a> {
         self.handle_whitespace();
         let token: Token;
         match self.ch {
-            // '=='
-            Some('=') if self.peek_char().unwrap() == '=' => {
-                self.read_char(); // consume '=' after first '='
-                token = Token::Equal
+            Some('=') => {
+                token = match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::Equal
+                    }
+                    _ => Token::Assign,
+                }
             }
-            Some('=') => token = Token::Assign,
             Some('+') => token = Token::Plus,
             Some('-') => token = Token::Minus,
-            // '!='
-            Some('!') if self.peek_char().unwrap() == '=' => {
-                self.read_char(); // consume '=' after first '!'
-                token = Token::NotEqual
+            Some('!') => {
+                token = match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::NotEqual
+                    }
+                    _ => Token::Bang,
+                }
             }
-            Some('!') => token = Token::Bang,
             Some('*') => token = Token::Asterisk,
             Some('/') => token = Token::Slash,
 
-            Some('<') if self.peek_char().unwrap() == '=' => {
-                self.read_char();
-                token = Token::LessThanEqual
-            }
-            Some('<') => token = Token::LessThan,
-            Some('>') if self.peek_char().unwrap() == '=' => {
-                self.read_char();
-                token = Token::GreaterThanEqual
-            }
-            Some('>') => token = Token::GreaterThan,
+            Some('<') => token = match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::LessThanEqual
+                }
+                _ => Token::LessThan,
+            },
+            Some('>') => token = match self.peek_char() {
+                Some('=') => {
+                    self.read_char();
+                    Token::GreaterThanEqual
+                }
+                _ => Token::GreaterThan,
+            },
 
             Some(',') => token = Token::Comma,
             Some(':') => token = Token::Colon,
