@@ -5,6 +5,7 @@ use std::{
     hash::{Hash, Hasher},
     rc::Rc,
 };
+use string_interner::{symbol::SymbolU32, StringInterner};
 
 use crate::{
     ast::{Identifier, Statement},
@@ -24,7 +25,7 @@ pub enum IR {
         Rc<Statement>,       // Body
         Rc<RefCell<Env>>,    // Env
     ),
-    String(String),
+    String(InternedString),
     Array(Vec<Rc<IR>>),
     StdLib(BuiltIn),
     Hash(FnvHashMap<Rc<IR>, Rc<IR>>),
@@ -39,7 +40,7 @@ impl fmt::Display for IR {
             IR::Null => write!(f, "null"),
             IR::ReturnValue(ir) => ir.fmt(f),
             IR::Function(_, _, _) => Ok(()),
-            IR::String(ir) => ir.fmt(f),
+            IR::String(is) => is.fmt(f),
             IR::StdLib(bi) => bi.fmt(f),
             IR::Array(irs) => write!(
                 f,
@@ -66,7 +67,7 @@ impl PartialEq for IR {
         match (self, b) {
             (IR::Integer(a), IR::Integer(b)) => a == b,
             (IR::Boolean(a), IR::Boolean(b)) => a == b,
-            (IR::String(a), IR::String(b)) => a == b,
+            (IR::String(a), IR::String(b)) => a.string_key == b.string_key,
             (IR::Null, IR::Null) => true,
             _ => false,
         }
@@ -79,10 +80,26 @@ impl Hash for IR {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self {
             IR::Integer(integer) => integer.hash(state),
-            IR::String(string) => string.hash(state),
+            IR::String(interned) => interned.string_key.hash(state),
             IR::Boolean(boolean) => boolean.hash(state),
             ir => panic!("Unhashable: {}", ir),
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct InternedString {
+    pub string_key: SymbolU32,
+    pub interner: Rc<RefCell<StringInterner>>,
+}
+
+impl fmt::Display for InternedString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let interner = self.interner.borrow();
+        let value = interner
+            .resolve(self.string_key)
+            .expect("String should have been interned");
+        write!(f, "{}", value)
     }
 }
 
