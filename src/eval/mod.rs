@@ -141,6 +141,15 @@ impl Interpreter {
                 Rc::clone(&self.env),
             ))),
             Expression::Call(function, arguments) => {
+                // quote(<Expression>)
+                if let Expression::Identifier(Identifier(identifier_key)) = **function {
+                    let mut interner = self.interner.borrow_mut();
+                    let quote_key = interner.get_or_intern(String::from("quote"));
+                    if quote_key == identifier_key {
+                        self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
+                        return Ok(Rc::new(IR::Quote(arguments[0].clone())));
+                    }
+                }
                 let function = self.eval_expression(function)?;
                 let evaluated_args = self.eval_expressions(arguments)?;
                 self.eval_call_expression(function, &evaluated_args)
@@ -977,6 +986,33 @@ mod tests {
                     }
                     IR::Null => {
                         assert!(expected.is_none());
+                    }
+                    ir_object => {
+                        panic!("Didn't expect {}", ir_object);
+                    }
+                },
+                Err(err) => {
+                    panic!("{}", err);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn it_evaluates_quote_expressions() {
+        let tests = vec![
+            ("quote(5)", "5"),
+            ("quote(5 + 8)", "(5 + 8)"),
+            ("quote(foobar)", "Identifier(1)"),
+            ("quote(foobar + barfoo)", "(Identifier(1) + Identifier(2))"),
+        ];
+
+        for (input, expected) in tests {
+            let result = test_eval(input);
+            match result {
+                Ok(ir) => match &*ir {
+                    IR::Quote(value) => {
+                        assert_eq!(expected.to_string(), value.to_string());
                     }
                     ir_object => {
                         panic!("Didn't expect {}", ir_object);
