@@ -267,6 +267,7 @@ impl Interpreter {
     fn eval_call_expression(&mut self, function: Rc<IR>, arguments: &Vec<Rc<IR>>) -> EvalResult {
         match &*function {
             IR::Function(parameters, body, env) => {
+                self.expect_arguments_length(arguments, ValidateLength::Exact(parameters.len()))?;
                 let mut env = Env::with_outer(Rc::clone(env));
                 for (Identifier(identifier_key), evaluated_arg) in
                     parameters.iter().zip(arguments.iter())
