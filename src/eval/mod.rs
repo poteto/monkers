@@ -193,7 +193,9 @@ impl Interpreter {
                 Token::Asterisk => Ok(Rc::new(IR::Integer(left * right))),
                 Token::Slash => Ok(Rc::new(IR::Integer(left / right))),
                 Token::LessThan => Ok(self.get_interned_bool(&(left < right))),
+                Token::LessThanEqual => Ok(self.get_interned_bool(&(left <= right))),
                 Token::GreaterThan => Ok(self.get_interned_bool(&(left > right))),
+                Token::GreaterThanEqual => Ok(self.get_interned_bool(&(left >= right))),
                 Token::Equal => Ok(self.get_interned_bool(&(left == right))),
                 Token::NotEqual => Ok(self.get_interned_bool(&(left != right))),
                 token => Err(EvalError::UnknownOperator(format!(
@@ -503,6 +505,8 @@ mod tests {
             ("true;", true),
             ("false;", false),
             ("1 < 2;", true),
+            ("1 <= 1;", true),
+            ("1 >= 1;", true),
             ("1 > 2;", false),
             ("1 < 1;", false),
             ("1 > 1;", false),
@@ -1036,7 +1040,7 @@ mod tests {
         let tests = vec![(
             r#"
             let fact = fn(n) {
-                if (n < 2) { return 1; }
+                if (n <= 1) { return 1; }
                 return n * fact(n - 1);
             }
             fact(20);

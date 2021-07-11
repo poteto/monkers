@@ -124,7 +124,15 @@ impl<'a> Lexer<'a> {
             Some('*') => token = Token::Asterisk,
             Some('/') => token = Token::Slash,
 
+            Some('<') if self.peek_char().unwrap() == '=' => {
+                self.read_char();
+                token = Token::LessThanEqual
+            }
             Some('<') => token = Token::LessThan,
+            Some('>') if self.peek_char().unwrap() == '=' => {
+                self.read_char();
+                token = Token::GreaterThanEqual
+            }
             Some('>') => token = Token::GreaterThan,
 
             Some(',') => token = Token::Comma,
@@ -239,6 +247,7 @@ mod tests {
         let result = add(five, ten);
         !-/*5;
         5 < 10 > 5;
+        5 <= 10 >= 5;
 
         if (5 < 10) {
             return true;
@@ -304,6 +313,12 @@ mod tests {
             Token::LessThan,
             Token::Integer(10),
             Token::GreaterThan,
+            Token::Integer(5),
+            Token::Semicolon,
+            Token::Integer(5),
+            Token::LessThanEqual,
+            Token::Integer(10),
+            Token::GreaterThanEqual,
             Token::Integer(5),
             Token::Semicolon,
             Token::If,
