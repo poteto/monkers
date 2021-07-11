@@ -1,6 +1,6 @@
 # monkers 🐒 + 🦀
 
-[![Rust](https://github.com/poteto/monkers/actions/workflows/rust.yml/badge.svg?branch=master)](https://github.com/poteto/monkers/actions/workflows/rust.yml)
+[![Rust](https://github.com/poteto/monkers/actions/workflows/rust.yml/badge.svg?branch=main)](https://github.com/poteto/monkers/actions/workflows/rust.yml)
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
