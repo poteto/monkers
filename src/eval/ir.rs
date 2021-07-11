@@ -110,6 +110,7 @@ pub enum BuiltIn {
     Head,
     Tail,
     Push,
+    Puts,
 }
 
 impl fmt::Display for BuiltIn {
@@ -120,6 +121,7 @@ impl fmt::Display for BuiltIn {
             BuiltIn::Head => write!(f, "head"),
             BuiltIn::Tail => write!(f, "tail"),
             BuiltIn::Push => write!(f, "push"),
+            BuiltIn::Puts => write!(f, "puts"),
         }
     }
 }
