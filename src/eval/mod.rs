@@ -66,7 +66,7 @@ impl Interpreter {
                 Ok(Rc::new(IR::ReturnValue(Rc::clone(&value))))
             }
             Statement::Expression(expression) => self.eval_expression(expression),
-            Statement::Block(statements) => self.eval_program(statements),
+            Statement::Block(_) => self.eval_block_statement(statement),
         }
     }
 
@@ -181,6 +181,9 @@ impl Interpreter {
 
     fn eval_infix_expression(&self, operator: &Token, left: Rc<IR>, right: Rc<IR>) -> EvalResult {
         match (&*left, &*right) {
+            (IR::ReturnValue(left), IR::ReturnValue(right)) => {
+                self.eval_infix_expression(operator, Rc::clone(left), Rc::clone(right))
+            }
             (IR::ReturnValue(return_value), _) => {
                 self.eval_infix_expression(operator, Rc::clone(return_value), right)
             }
@@ -285,14 +288,22 @@ impl Interpreter {
         match &*function {
             IR::Function(parameters, body, env) => {
                 self.expect_arguments_length(arguments, ValidateLength::Exact(parameters.len()))?;
-                let mut env = Env::with_outer(Rc::clone(env));
+                let mut inner_env = Env::with_outer(Rc::clone(env));
                 for (Identifier(identifier_key), evaluated_arg) in
                     parameters.iter().zip(arguments.iter())
                 {
-                    env.set(identifier_key, Rc::clone(&evaluated_arg))
+                    inner_env.set(identifier_key, Rc::clone(&evaluated_arg))
                 }
-                self.env = Rc::new(RefCell::new(env));
-                self.eval_block_statement(body)
+                // Obtain a reference to the current env to avoid polluting it with function locals.
+                // Then, temporarily set the outer env to the function's inner env, so we can
+                // evaluate the function's body with the correct locals. We need this because the
+                // interpreter is stateful and we don't thread the env through to each eval function.
+                let current_env = Rc::clone(&self.env);
+                self.env = Rc::new(RefCell::new(inner_env));
+                let ret = self.eval_block_statement(body);
+                // Reset the outer env to the correct scope.
+                self.env = current_env;
+                ret
             }
             IR::StdLib(built_in) => self.eval_built_in(built_in, arguments),
             ir => Err(EvalError::TypeError(format!("{} is not a function", ir))),
@@ -1037,16 +1048,35 @@ mod tests {
 
     #[test]
     fn it_evaluates_recursive_functions() {
-        let tests = vec![(
-            r#"
-            let fact = fn(n) {
-                if (n <= 1) { return 1; }
-                return n * fact(n - 1);
-            }
-            fact(20);
-            "#,
-            2_432_902_008_176_640_000,
-        )];
+        let tests = vec![
+            (
+                r#"
+                let fact = fn(n) {
+                    if (n <= 1) {
+                        return 1;
+                    }
+                    return n * fact(n - 1);
+                }
+                fact(20);
+                "#,
+                2_432_902_008_176_640_000,
+            ),
+            (
+                r#"
+                let fib = fn(n) {
+                    if (n <= 0) {
+                        return 0;
+                    };
+                    if (n == 1) {
+                        return 1;
+                    }
+                    return fib(n - 1) + fib(n - 2);
+                }
+                fib(6);
+                "#,
+                8,
+            ),
+        ];
 
         for (input, expected) in tests {
             let result = test_eval(input);
