@@ -130,20 +130,24 @@ impl<'a> Lexer<'a> {
             Some('*') => token = Token::Asterisk,
             Some('/') => token = Token::Slash,
 
-            Some('<') => token = match self.peek_char() {
-                Some('=') => {
-                    self.read_char();
-                    Token::LessThanEqual
+            Some('<') => {
+                token = match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::LessThanEqual
+                    }
+                    _ => Token::LessThan,
                 }
-                _ => Token::LessThan,
-            },
-            Some('>') => token = match self.peek_char() {
-                Some('=') => {
-                    self.read_char();
-                    Token::GreaterThanEqual
+            }
+            Some('>') => {
+                token = match self.peek_char() {
+                    Some('=') => {
+                        self.read_char();
+                        Token::GreaterThanEqual
+                    }
+                    _ => Token::GreaterThan,
                 }
-                _ => Token::GreaterThan,
-            },
+            }
 
             Some(',') => token = Token::Comma,
             Some(':') => token = Token::Colon,
