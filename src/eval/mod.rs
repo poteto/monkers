@@ -1,6 +1,6 @@
 mod env;
 mod error;
-mod ir;
+pub mod ir;
 mod validate;
 
 use fnv::FnvHashMap;

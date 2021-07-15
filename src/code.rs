@@ -1,25 +1,44 @@
 use byteorder::{BigEndian, ByteOrder};
-use std::fmt;
+use std::{borrow::Borrow, convert::TryFrom, fmt};
 
-// type Instructions = [u8];
+pub type Byte = u8;
+pub type Instructions = [Byte];
+
+type Todo = ();
 
 // Opcodes are represented by a single byte.
+#[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum Opcode {
     OpConstant = 0,
 }
 
+impl TryFrom<Byte> for Opcode {
+    type Error = Todo;
+
+    fn try_from(op: Byte) -> Result<Self, Self::Error> {
+        match op {
+            0 => Ok(Opcode::OpConstant),
+            _ => Err(()),
+        }
+    }
+}
+
 // Definitions map Opcodes to the number of bytes each operand takes up.
-enum OpcodeDefinition<'operand> {
+pub enum OpcodeDefinition<'operand> {
     // Constant expressions.
     OpConstant(&'operand [usize]),
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
-    pub fn lookup(op: &Opcode) -> OpcodeDefinition<'operand> {
-        match op {
+    pub fn lookup(opcode: &Opcode) -> OpcodeDefinition<'operand> {
+        match opcode {
             Opcode::OpConstant => OpcodeDefinition::OpConstant(&[2]),
         }
+    }
+
+    pub fn lookup_byte(byte: Byte) -> Result<OpcodeDefinition<'operand>, Todo> {
+        Ok(Self::lookup(&Opcode::try_from(byte)?))
     }
 
     pub fn widths(&self) -> &[usize] {
@@ -37,19 +56,19 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
     }
 }
 
-pub fn make(op: Opcode, operands: &[usize]) -> Vec<u8> {
-    let definition = OpcodeDefinition::lookup(&op);
+pub fn make(opcode: Opcode, operands: &[usize]) -> Vec<Byte> {
+    let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
-    let mut instruction: Vec<u8> = vec![0; instruction_len];
-    instruction[0] = op as u8;
+    let mut instruction: Vec<Byte> = vec![0; instruction_len];
+    instruction[0] = opcode as Byte;
 
     let mut offset = 1;
     for (index, operand) in operands.iter().enumerate() {
         let width = definition.widths()[index];
         match width {
             2 => BigEndian::write_u16(&mut instruction[offset..], *operand as u16),
-            _ => {}
+            _ => todo!()
         };
         offset += width;
     }
@@ -57,23 +76,108 @@ pub fn make(op: Opcode, operands: &[usize]) -> Vec<u8> {
     instruction
 }
 
+fn read_operands(
+    definition: &OpcodeDefinition,
+    instructions: &Instructions,
+) -> (Vec<usize>, usize) {
+    let mut operands = vec![0; definition.widths().len()];
+    let mut offset = 0;
+
+    for (index, width) in definition.widths().iter().enumerate() {
+        match width {
+            2 => operands[index] = BigEndian::read_u16(&instructions[offset..]) as usize,
+            _ => todo!()
+        };
+        offset += width;
+    }
+
+    (operands, offset)
+}
+
+pub fn disasemble(instructions: &Instructions) -> Result<String, Todo> {
+    let mut buffer = String::new();
+    let mut index = 0;
+    while index < instructions.len() {
+        let definition = OpcodeDefinition::lookup_byte(instructions[index])?;
+        let (operands, offset) = read_operands(&definition, &instructions[(index + 1)..]);
+        buffer.push_str(
+            format!(
+                "{:04} {}\n",
+                index,
+                format_instruction(&definition, &operands)?
+            )
+            .borrow(),
+        );
+        index += 1 + offset;
+    }
+
+    Ok(buffer)
+}
+
+fn format_instruction(definition: &OpcodeDefinition, operands: &[usize]) -> Result<String, Todo> {
+    let operand_count = definition.widths().len();
+    if operands.len() != operand_count {
+        return Err(());
+    }
+    match operand_count {
+        1 => Ok(format!("{} {}", definition, operands[0])),
+        _ => Err(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::code::read_operands;
+
     use super::*;
 
     #[test]
-
     fn it_makes_bytecode_instructions() {
         let tests = vec![(
             Opcode::OpConstant,
             [65534],
-            [Opcode::OpConstant as u8, 255, 254],
+            [Opcode::OpConstant as Byte, 255, 254],
         )];
 
-        for (op, operands, expected) in tests {
-            let instruction = make(op, &operands);
+        for (opcode, operands, expected) in tests {
+            let instruction = make(opcode, &operands);
 
             assert_eq!(instruction, expected);
+        }
+    }
+
+    #[test]
+    fn it_makes_bytecode_instructions_string() {
+        let expected = r#"0000 OpConstant 1
+0003 OpConstant 2
+0006 OpConstant 65535
+"#;
+        let instructions = vec![
+            make(Opcode::OpConstant, &[1]),
+            make(Opcode::OpConstant, &[2]),
+            make(Opcode::OpConstant, &[65535]),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<Byte>>();
+
+        if let Ok(instructions_string) = disasemble(&instructions) {
+            assert_eq!(instructions_string, expected);
+        } else {
+            panic!("Disassembly failed");
+        }
+    }
+
+    #[test]
+    fn read_operands_works() {
+        let tests = vec![(Opcode::OpConstant, [65535], 2)];
+
+        for (opcode, operands, expected_offset) in tests {
+            let instruction = make(opcode, &operands);
+            let definition = OpcodeDefinition::lookup(&opcode);
+            let (operand, offset) = read_operands(&definition, &instruction[1..]);
+            assert_eq!(offset, expected_offset);
+            assert_eq!(operand, operands);
         }
     }
 }
