@@ -63,7 +63,7 @@ mod tests {
         Ok(compiler.to_bytecode())
     }
 
-    #[test]
+    #[ignore]
     fn it_makes_bytecode_instructions() {
         let tests = vec![(
             "1 + 2",
