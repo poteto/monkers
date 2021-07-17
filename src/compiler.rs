@@ -128,6 +128,13 @@ mod tests {
             }
             program
         }
+
+        fn compile(&self) -> Bytecode {
+            let program = self.parse();
+            let compiler = Compiler::new();
+            assert!(compiler.compile(&program).is_ok());
+            compiler.to_bytecode()
+        }
     }
 
     fn test_instructions(expected: Vec<Vec<Byte>>, actual: Rc<RefCell<Instructions>>) {
@@ -170,10 +177,7 @@ mod tests {
 
     fn run_compiler_tests(tests: Vec<CompilerTestCase>) {
         for test in tests {
-            let program = test.parse();
-            let compiler = Compiler::new();
-            assert!(compiler.compile(&program).is_ok());
-            let bytecode = compiler.to_bytecode();
+            let bytecode = test.compile();
             test_instructions(test.expected_instructions, bytecode.instructions);
             test_constants(test.expected_constants, bytecode.constants);
         }
