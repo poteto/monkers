@@ -63,7 +63,7 @@ pub fn make(opcode: Opcode, operands: &[usize]) -> Instructions {
     let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
-    let mut instruction: Instructions = vec![0; instruction_len];
+    let mut instruction = vec![0; instruction_len];
     instruction[0] = opcode as Byte;
 
     let mut offset = 1;
