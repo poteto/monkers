@@ -59,11 +59,11 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
     }
 }
 
-pub fn make(opcode: Opcode, operands: &[usize]) -> Vec<Byte> {
+pub fn make(opcode: Opcode, operands: &[usize]) -> Instructions {
     let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
-    let mut instruction: Vec<Byte> = vec![0; instruction_len];
+    let mut instruction: Instructions = vec![0; instruction_len];
     instruction[0] = opcode as Byte;
 
     let mut offset = 1;
@@ -169,7 +169,7 @@ mod tests {
         ]
         .into_iter()
         .flatten()
-        .collect::<Vec<Byte>>();
+        .collect::<Instructions>();
 
         if let Ok(instructions_string) = disasemble(&instructions) {
             assert_eq!(instructions_string, expected);

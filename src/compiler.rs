@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     ast::{Expression, Program, Statement},
-    code::{make, Instructions, Opcode},
+    code::{self, Instructions, Opcode},
     ir::IR,
 };
 
@@ -62,7 +62,7 @@ impl Compiler {
     }
 
     fn emit(&self, opcode: Opcode, operands: &[usize]) -> usize {
-        let mut instruction = make(opcode, operands);
+        let mut instruction = code::make(opcode, operands);
         self.add_instructions(&mut instruction)
     }
 
