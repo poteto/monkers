@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use fnv::FnvHashMap;
 use string_interner::symbol::SymbolU32;
 
-use crate::eval::ir::IR;
+use crate::ir::IR;
 
 #[derive(Debug)]
 pub struct Env {
