@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ByteOrder};
 use std::{borrow::Borrow, convert::TryFrom, fmt};
 
 pub type Byte = u8;
-pub type Instructions = [Byte];
+pub type Instructions = Vec<Byte>;
 
 pub enum CodeError {
     NotImplementedYet,
@@ -102,7 +102,7 @@ pub fn disasemble(instructions: &Instructions) -> Result<String, CodeError> {
     let mut index = 0;
     while index < instructions.len() {
         let definition = OpcodeDefinition::lookup_byte(instructions[index])?;
-        let (operands, offset) = read_operands(&definition, &instructions[(index + 1)..]);
+        let (operands, offset) = read_operands(&definition, &instructions[(index + 1)..].to_vec());
         buffer.push_str(
             format!(
                 "{:04} {}\n",
@@ -185,7 +185,7 @@ mod tests {
         for (opcode, operands, expected_offset) in tests {
             let instruction = make(opcode, &operands);
             let definition = OpcodeDefinition::lookup(&opcode);
-            let (operand, offset) = read_operands(&definition, &instruction[1..]);
+            let (operand, offset) = read_operands(&definition, &instruction[1..].to_vec());
             assert_eq!(offset, expected_offset);
             assert_eq!(operand, operands);
         }
