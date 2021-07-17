@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{
     ast::{Expression, Program, Statement},
     code::{make, Instructions, Opcode},
-    eval::ir::IR,
+    ir::IR,
 };
 
 pub enum CompilerError {

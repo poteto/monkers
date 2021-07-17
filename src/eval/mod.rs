@@ -1,6 +1,5 @@
 mod env;
 mod error;
-pub mod ir;
 mod validate;
 
 use fnv::FnvHashMap;
@@ -10,8 +9,8 @@ pub use crate::eval::env::Env;
 use crate::{
     ast::{Expression, Identifier, Program, Statement},
     eval::error::EvalError,
-    eval::ir::{BuiltIn, InternedString, IR},
     eval::validate::ValidateLength,
+    ir::{BuiltIn, InternedString, IR},
     token::{IntegerSize, Token},
 };
 
@@ -450,10 +449,13 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
     use string_interner::StringInterner;
 
-    use crate::eval::{ir::IR, Env, Interpreter};
-    use crate::lexer::Lexer;
-    use crate::parser::Parser;
-    use crate::token::IntegerSize;
+    use crate::{
+        eval::{Env, Interpreter},
+        ir::IR,
+        lexer::Lexer,
+        parser::Parser,
+        token::IntegerSize,
+    };
 
     use super::EvalResult;
 
