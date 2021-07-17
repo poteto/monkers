@@ -4,7 +4,10 @@ use std::{borrow::Borrow, convert::TryFrom, fmt};
 pub type Byte = u8;
 pub type Instructions = [Byte];
 
-type Todo = ();
+pub enum CodeError {
+    NotImplementedYet,
+    UndefinedOpcode(Byte),
+}
 
 // Opcodes are represented by a single byte.
 #[derive(Copy, Clone)]
@@ -14,12 +17,12 @@ pub enum Opcode {
 }
 
 impl TryFrom<Byte> for Opcode {
-    type Error = Todo;
+    type Error = CodeError;
 
     fn try_from(op: Byte) -> Result<Self, Self::Error> {
         match op {
             0 => Ok(Opcode::OpConstant),
-            _ => Err(()),
+            _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
 }
@@ -37,7 +40,7 @@ impl<'operand> OpcodeDefinition<'operand> {
         }
     }
 
-    pub fn lookup_byte(byte: Byte) -> Result<OpcodeDefinition<'operand>, Todo> {
+    pub fn lookup_byte(byte: Byte) -> Result<OpcodeDefinition<'operand>, CodeError> {
         Ok(Self::lookup(&Opcode::try_from(byte)?))
     }
 
@@ -68,7 +71,7 @@ pub fn make(opcode: Opcode, operands: &[usize]) -> Vec<Byte> {
         let width = definition.widths()[index];
         match width {
             2 => BigEndian::write_u16(&mut instruction[offset..], *operand as u16),
-            _ => todo!()
+            _ => todo!(),
         };
         offset += width;
     }
@@ -86,7 +89,7 @@ fn read_operands(
     for (index, width) in definition.widths().iter().enumerate() {
         match width {
             2 => operands[index] = BigEndian::read_u16(&instructions[offset..]) as usize,
-            _ => todo!()
+            _ => todo!(),
         };
         offset += width;
     }
@@ -94,7 +97,7 @@ fn read_operands(
     (operands, offset)
 }
 
-pub fn disasemble(instructions: &Instructions) -> Result<String, Todo> {
+pub fn disasemble(instructions: &Instructions) -> Result<String, CodeError> {
     let mut buffer = String::new();
     let mut index = 0;
     while index < instructions.len() {
@@ -114,14 +117,21 @@ pub fn disasemble(instructions: &Instructions) -> Result<String, Todo> {
     Ok(buffer)
 }
 
-fn format_instruction(definition: &OpcodeDefinition, operands: &[usize]) -> Result<String, Todo> {
+fn format_instruction(
+    definition: &OpcodeDefinition,
+    operands: &[usize],
+) -> Result<String, CodeError> {
     let operand_count = definition.widths().len();
     if operands.len() != operand_count {
-        return Err(());
+        panic!(
+            "Expected OpcodeDefinition width: {} to match number of operands: {}",
+            operand_count,
+            operands.len()
+        );
     }
     match operand_count {
         1 => Ok(format!("{} {}", definition, operands[0])),
-        _ => Err(()),
+        _ => Err(CodeError::NotImplementedYet),
     }
 }
 
