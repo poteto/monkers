@@ -1,34 +1,124 @@
-use monkers::eval::{Env, Interpreter};
-use monkers::{lexer::Lexer, parser::Parser};
-use rustyline::error::ReadlineError;
-use rustyline::Editor;
+use clap::{App, Arg};
+use monkers::{
+    ast::Program,
+    compiler::{Bytecode, Compiler},
+    eval::{Env, Interpreter},
+    ir::IR,
+    vm::VM,
+    {lexer::Lexer, parser::Parser},
+};
+use rustyline::{error::ReadlineError, Editor};
 use string_interner::StringInterner;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, str::FromStr};
+
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+const AUTHORS: &'static str = env!("CARGO_PKG_AUTHORS");
+
+#[derive(Debug)]
+enum EvalStrategy {
+    Compiled,
+    Interpreted,
+}
+
+impl FromStr for EvalStrategy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "compiled" => Ok(EvalStrategy::Compiled),
+            "interpreted" => Ok(EvalStrategy::Interpreted),
+            opt => Err(format!("Unsupported option {}", opt)),
+        }
+    }
+}
+
+struct REPL<'strategy> {
+    interner: Rc<RefCell<StringInterner>>,
+    env: Rc<RefCell<Env>>,
+    strategy: &'strategy EvalStrategy,
+}
+
+impl<'strategy> REPL<'strategy> {
+    pub fn new(strategy: &'strategy EvalStrategy) -> Self {
+        Self {
+            interner: Rc::new(RefCell::new(StringInterner::default())),
+            env: Rc::new(RefCell::new(Env::new())),
+            strategy,
+        }
+    }
+
+    fn parse<'input>(&self, input: &'input str) -> Program {
+        let lexer = Lexer::new(input, Rc::clone(&self.interner));
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        for error in &program.errors {
+            eprintln!("{}", error);
+        }
+        program
+    }
+
+    fn compile(&self, program: &Program) -> Bytecode {
+        let compiler = Compiler::new();
+        if let Err(err) = compiler.compile(&program) {
+            eprintln!("{:?}", err);
+        }
+        compiler.to_bytecode()
+    }
+
+    pub fn eval<'input>(&self, input: &'input str) -> Option<IR> {
+        let program = self.parse(input);
+        match self.strategy {
+            EvalStrategy::Compiled => {
+                let bytecode = self.compile(&program);
+                let mut vm = VM::new(bytecode);
+                if let Err(err) = vm.run() {
+                    eprintln!("{:?}", err);
+                }
+                vm.stack_top().map(|ir| ir.clone())
+            }
+            EvalStrategy::Interpreted => {
+                let mut interpreter =
+                    Interpreter::new(Rc::clone(&self.env), Rc::clone(&self.interner));
+                match interpreter.eval(&program) {
+                    Ok(ir) => Some((*ir).clone()),
+                    Err(error) => {
+                        eprintln!("{}", error);
+                        None
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn main() {
+    let matches = App::new("monkers-repl")
+        .version(VERSION)
+        .author(AUTHORS)
+        .about("The REPL for Monkers, a Monkeylang engine")
+        .arg(
+            Arg::from("<strategy> 'Which eval strategy to use'")
+                .possible_values(&["compiled", "interpreted"])
+                .default_value("compiled"),
+        )
+        .get_matches();
+    let strategy = matches.value_of_t("strategy").unwrap_or_else(|e| e.exit());
+    println!("Evaluating with strategy: {:?}", &strategy);
+    let repl = REPL::new(&strategy);
+
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
         println!("No previous history.");
     }
-    let interner = Rc::new(RefCell::new(StringInterner::default()));
-    let env = Rc::new(RefCell::new(Env::new()));
-    let mut interpreter = Interpreter::new(env, Rc::clone(&interner));
     loop {
         let readline = rl.readline("🐒 >> ");
         match readline {
-            Ok(line) => {
-                rl.add_history_entry(line.as_str());
-                let lexer = Lexer::new(&line, Rc::clone(&interner));
-                let mut parser = Parser::new(lexer);
-                let program = parser.parse_program();
-
-                for error in &program.errors {
-                    eprintln!("{}", error);
-                }
-
-                match interpreter.eval(&program) {
-                    Ok(ir) => println!("{}", ir),
-                    Err(error) => eprintln!("{}", error),
+            Ok(input) => {
+                rl.add_history_entry(input.as_str());
+                match repl.eval(&input) {
+                    Some(ir) => println!("{}", ir),
+                    None => {}
                 };
             }
             Err(ReadlineError::Interrupted) => {

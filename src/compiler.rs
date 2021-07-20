@@ -7,6 +7,7 @@ use crate::{
     token::Token,
 };
 
+#[derive(Debug)]
 pub enum CompilerError {
     NotImplementedYet,
 }

@@ -10,6 +10,7 @@ rustyline = "8.2.0"
 string-interner = "0.12.2"
 fnv = "1.0.7"
 byteorder = "1.4.3"
+clap = "3.0.0-beta.2"
 
 [[bin]]
 name = "monkers"

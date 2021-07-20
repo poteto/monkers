@@ -4,7 +4,24 @@
 
 Short for `monkey-rs`. An implementation of [monkeylang](https://monkeylang.org/). Previously, I implemented the interpreter in [TypeScript](https://github.com/poteto/boba-js). I am re-implementing the interpreter and later compiler in Rust as a learning exercise.
 
-## REPL
+## Building
+
+```shell
+$ cargo build --release
+
+# See help
+$ target/release/monkers --help
+
+# Run the REPL with bytecode compilation
+$ target/release/monkers
+
+# Run the REPL with the tree-walking interpreter
+$ target/release/monkers interpreted
+```
+
+## Developing
+
+### Development REPL
 
 Start the REPL by running `cargo run`, then entering some Monkey:
 
@@ -27,7 +44,11 @@ true
 
 Command history is saved in `history.txt`.
 
-## Developing
+By default, monkers REPL will compile your code into bytecode, then evaluate the bytecode with its VM. You can switch to the slower tree-walking interpreter with an arg:
+
+```
+cargo run -- interpreted
+```
 
 ### Helpful crates
 
