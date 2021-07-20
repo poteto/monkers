@@ -1,33 +1,29 @@
 use std::convert::TryFrom;
 
-use fnv::FnvHashMap;
-
 use crate::{
     code::{self, Opcode},
     compiler::Bytecode,
     ir::IR,
 };
 
-// must not exceed size of stack_ptr
-const STACK_SIZE: u16 = 2048;
+const STACK_SIZE: usize = 2048;
 
 pub enum VMError {
     NotImplementedYet,
     StackOverflow,
-    OutOfBounds,
 }
 
 pub struct VM {
     bytecode: Bytecode,
-    stack: FnvHashMap<u16, IR>,
-    stack_ptr: u16,
+    stack: Vec<IR>,
+    stack_ptr: usize,
 }
 
 impl VM {
     pub fn new(bytecode: Bytecode) -> Self {
         Self {
             bytecode,
-            stack: FnvHashMap::with_capacity_and_hasher(STACK_SIZE.into(), Default::default()),
+            stack: Vec::with_capacity(STACK_SIZE),
             stack_ptr: Default::default(),
         }
     }
@@ -43,8 +39,8 @@ impl VM {
                     self.push_index(const_index.into())?;
                 }
                 Ok(Opcode::OpAdd) => {
-                    let right = self.pop()?;
-                    let left = self.pop()?;
+                    let right = self.pop();
+                    let left = self.pop();
                     match (left, right) {
                         (IR::Integer(left_value), IR::Integer(right_value)) => {
                             self.push(IR::Integer(left_value + right_value))?;
@@ -82,20 +78,16 @@ impl VM {
         Ok(())
     }
 
-    fn pop(&mut self) -> Result<IR, VMError> {
-        self.stack
-            .remove(&(self.stack_ptr - 1))
-            .and_then(|ir| {
-                self.stack_ptr -= 1;
-                Some(ir)
-            })
-            .ok_or(VMError::OutOfBounds)
+    fn pop(&mut self) -> IR {
+        let ir = self.stack.remove(self.stack_ptr - 1);
+        self.stack_ptr -= 1;
+        ir
     }
 
     pub fn stack_top(&self) -> Option<&IR> {
         match self.stack_ptr {
             0 => None,
-            n => self.stack.get(&(n - 1)),
+            n => self.stack.get(n - 1),
         }
     }
 }

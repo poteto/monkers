@@ -96,7 +96,7 @@ fn read_operands(
     for (index, width) in definition.widths().iter().enumerate() {
         match width {
             0 => {}
-            2 => operands[index] = read_u16(&instructions[offset..]) as usize,
+            2 => operands[index] = read_u16(&instructions[offset..]).into(),
             _ => todo!(),
         };
         offset += width;
