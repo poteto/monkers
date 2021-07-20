@@ -88,7 +88,7 @@ fn read_operands(
 
     for (index, width) in definition.widths().iter().enumerate() {
         match width {
-            2 => operands[index] = BigEndian::read_u16(&instructions[offset..]) as usize,
+            2 => operands[index] = read_u16(&instructions[offset..]) as usize,
             _ => todo!(),
         };
         offset += width;
@@ -133,6 +133,10 @@ fn format_instruction(
         1 => Ok(format!("{} {}", definition, operands[0])),
         _ => Err(CodeError::NotImplementedYet),
     }
+}
+
+pub(crate) fn read_u16(instructions_slice: &[u8]) -> u16 {
+    BigEndian::read_u16(instructions_slice)
 }
 
 #[cfg(test)]
