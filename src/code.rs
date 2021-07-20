@@ -14,14 +14,17 @@ pub enum CodeError {
 #[repr(u8)]
 pub enum Opcode {
     OpConstant = 0,
+    OpAdd,
 }
 
+// TODO: Maybe turn this into a macro?
 impl TryFrom<Byte> for Opcode {
     type Error = CodeError;
 
     fn try_from(op: Byte) -> Result<Self, Self::Error> {
         match op {
             0 => Ok(Opcode::OpConstant),
+            1 => Ok(Opcode::OpAdd),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -31,12 +34,14 @@ impl TryFrom<Byte> for Opcode {
 pub enum OpcodeDefinition<'operand> {
     // Constant expressions.
     OpConstant(&'operand [usize]),
+    OpAdd,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
     pub fn lookup(opcode: &Opcode) -> OpcodeDefinition<'operand> {
         match opcode {
             Opcode::OpConstant => OpcodeDefinition::OpConstant(&[2]),
+            Opcode::OpAdd => OpcodeDefinition::OpAdd,
         }
     }
 
@@ -47,6 +52,7 @@ impl<'operand> OpcodeDefinition<'operand> {
     pub fn widths(&self) -> &[usize] {
         match self {
             OpcodeDefinition::OpConstant(widths) => widths,
+            OpcodeDefinition::OpAdd => &[],
         }
     }
 }
@@ -55,11 +61,12 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             OpcodeDefinition::OpConstant(_) => write!(f, "OpConstant"),
+            OpcodeDefinition::OpAdd => write!(f, "OpAdd"),
         }
     }
 }
 
-pub fn make(opcode: Opcode, operands: &[usize]) -> Instructions {
+pub fn make(opcode: Opcode, operands: &Vec<usize>) -> Instructions {
     let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
@@ -88,7 +95,8 @@ fn read_operands(
 
     for (index, width) in definition.widths().iter().enumerate() {
         match width {
-            2 => operands[index] = read_u16(&instructions[offset..]) as usize,
+            0 => {}
+            2 => operands[index] = read_u16(&instructions[offset..]).into(),
             _ => todo!(),
         };
         offset += width;
@@ -130,6 +138,7 @@ fn format_instruction(
         );
     }
     match operand_count {
+        0 => Ok(format!("{}", definition)),
         1 => Ok(format!("{} {}", definition, operands[0])),
         _ => Err(CodeError::NotImplementedYet),
     }
@@ -147,11 +156,14 @@ mod tests {
 
     #[test]
     fn it_makes_bytecode_instructions() {
-        let tests = vec![(
-            Opcode::OpConstant,
-            [65534],
-            [Opcode::OpConstant as Byte, 255, 254],
-        )];
+        let tests = vec![
+            (
+                Opcode::OpConstant,
+                vec![65534],
+                vec![Opcode::OpConstant as Byte, 255, 254],
+            ),
+            (Opcode::OpAdd, vec![], vec![Opcode::OpAdd as Byte]),
+        ];
 
         for (opcode, operands, expected) in tests {
             let instruction = make(opcode, &operands);
@@ -162,14 +174,14 @@ mod tests {
 
     #[test]
     fn it_makes_bytecode_instructions_string() {
-        let expected = r#"0000 OpConstant 1
-0003 OpConstant 2
-0006 OpConstant 65535
+        let expected = r#"0000 OpAdd
+0001 OpConstant 2
+0004 OpConstant 65535
 "#;
         let instructions = vec![
-            make(Opcode::OpConstant, &[1]),
-            make(Opcode::OpConstant, &[2]),
-            make(Opcode::OpConstant, &[65535]),
+            make(Opcode::OpAdd, &vec![]),
+            make(Opcode::OpConstant, &vec![2]),
+            make(Opcode::OpConstant, &vec![65535]),
         ]
         .into_iter()
         .flatten()
@@ -184,7 +196,7 @@ mod tests {
 
     #[test]
     fn read_operands_works() {
-        let tests = vec![(Opcode::OpConstant, [65535], 2)];
+        let tests = vec![(Opcode::OpConstant, vec![65535], 2)];
 
         for (opcode, operands, expected_offset) in tests {
             let instruction = make(opcode, &operands);
