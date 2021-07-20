@@ -13,7 +13,7 @@ use crate::{
     token::IntegerSize,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IR {
     Nothing,
     Integer(IntegerSize),
@@ -89,7 +89,13 @@ impl Hash for IR {
     }
 }
 
-#[derive(Debug)]
+impl Default for IR {
+    fn default() -> Self {
+        IR::Nothing
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct InternedString {
     pub string_key: SymbolU32,
     pub interner: Rc<RefCell<StringInterner>>,
@@ -105,7 +111,7 @@ impl fmt::Display for InternedString {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BuiltIn {
     Len,
     Last,

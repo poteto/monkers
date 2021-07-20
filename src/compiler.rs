@@ -11,8 +11,8 @@ pub enum CompilerError {
 }
 
 pub struct Bytecode {
-    pub instructions: Rc<RefCell<Instructions>>,
-    pub constants: Rc<RefCell<Vec<IR>>>,
+    pub instructions: Instructions,
+    pub constants: Vec<IR>,
 }
 
 pub struct Compiler {
@@ -80,8 +80,8 @@ impl Compiler {
 
     pub fn to_bytecode(&self) -> Bytecode {
         Bytecode {
-            instructions: Rc::clone(&self.instructions),
-            constants: Rc::clone(&self.constants),
+            instructions: self.instructions.borrow().clone(),
+            constants: self.constants.borrow().clone(),
         }
     }
 }
@@ -137,8 +137,7 @@ mod tests {
         }
     }
 
-    fn test_instructions(expected: Vec<Vec<Byte>>, actual: Rc<RefCell<Instructions>>) {
-        let actual = actual.borrow();
+    fn test_instructions(expected: Vec<Vec<Byte>>, actual: Instructions) {
         let concatted = expected.into_iter().flatten().collect::<Vec<_>>();
         assert_eq!(
             actual.len(),
@@ -156,8 +155,7 @@ mod tests {
         }
     }
 
-    fn test_constants(expected: Vec<IR>, actual: Rc<RefCell<Vec<IR>>>) {
-        let actual = actual.borrow();
+    fn test_constants(expected: Vec<IR>, actual: Vec<IR>) {
         assert_eq!(
             expected.len(),
             actual.len(),
