@@ -4,6 +4,7 @@ use crate::{
     ast::{Expression, Program, Statement},
     code::{self, Instructions, Opcode},
     ir::IR,
+    token::Token,
 };
 
 pub enum CompilerError {
@@ -45,15 +46,19 @@ impl Compiler {
 
     fn compile_expression(&self, expression: &Expression) -> Result<(), CompilerError> {
         match expression {
-            Expression::Infix(_, left, right) => {
+            Expression::Infix(operator, left, right) => {
                 self.compile_expression(left)?;
                 self.compile_expression(right)?;
+                match operator {
+                    Token::Plus => self.emit(Opcode::OpAdd, &vec![]),
+                    _ => return Err(CompilerError::NotImplementedYet),
+                };
                 Ok(())
             }
             Expression::Integer(value) => {
                 self.emit(
                     Opcode::OpConstant,
-                    &[self.add_constant(IR::Integer(*value))],
+                    &vec![self.add_constant(IR::Integer(*value))],
                 );
                 Ok(())
             }
@@ -61,7 +66,7 @@ impl Compiler {
         }
     }
 
-    fn emit(&self, opcode: Opcode, operands: &[usize]) -> usize {
+    fn emit(&self, opcode: Opcode, operands: &Vec<usize>) -> usize {
         let mut instruction = code::make(opcode, operands);
         self.add_instructions(&mut instruction)
     }
@@ -187,8 +192,9 @@ mod tests {
             "1 + 2",
             vec![IR::Integer(1), IR::Integer(2)],
             vec![
-                make(Opcode::OpConstant, &[0]),
-                make(Opcode::OpConstant, &[1]),
+                make(Opcode::OpConstant, &vec![0]),
+                make(Opcode::OpConstant, &vec![1]),
+                make(Opcode::OpAdd, &vec![]),
             ],
         )];
 
