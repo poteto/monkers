@@ -8,6 +8,7 @@ use crate::{
 
 const STACK_SIZE: usize = 2048;
 
+#[derive(Debug)]
 pub enum VMError {
     NotImplementedYet,
     StackOverflow,
