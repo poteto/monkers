@@ -15,6 +15,7 @@ pub enum CodeError {
 pub enum Opcode {
     OpConstant = 0,
     OpAdd,
+    OpPop,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -25,6 +26,7 @@ impl TryFrom<Byte> for Opcode {
         match op {
             0 => Ok(Opcode::OpConstant),
             1 => Ok(Opcode::OpAdd),
+            2 => Ok(Opcode::OpPop),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -35,6 +37,7 @@ pub enum OpcodeDefinition<'operand> {
     // Constant expressions.
     OpConstant(&'operand [usize]),
     OpAdd,
+    OpPop,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -42,6 +45,7 @@ impl<'operand> OpcodeDefinition<'operand> {
         match opcode {
             Opcode::OpConstant => OpcodeDefinition::OpConstant(&[2]),
             Opcode::OpAdd => OpcodeDefinition::OpAdd,
+            Opcode::OpPop => OpcodeDefinition::OpPop,
         }
     }
 
@@ -53,6 +57,7 @@ impl<'operand> OpcodeDefinition<'operand> {
         match self {
             OpcodeDefinition::OpConstant(widths) => widths,
             OpcodeDefinition::OpAdd => &[],
+            OpcodeDefinition::OpPop => &[],
         }
     }
 }
@@ -62,25 +67,28 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
         match self {
             OpcodeDefinition::OpConstant(_) => write!(f, "OpConstant"),
             OpcodeDefinition::OpAdd => write!(f, "OpAdd"),
+            OpcodeDefinition::OpPop => write!(f, "OpPop"),
         }
     }
 }
 
-pub fn make(opcode: Opcode, operands: &Vec<usize>) -> Instructions {
+pub fn make(opcode: Opcode, operands: Option<&Vec<usize>>) -> Instructions {
     let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
     let mut instruction = vec![0; instruction_len];
     instruction[0] = opcode as Byte;
 
-    let mut offset = 1;
-    for (index, operand) in operands.iter().enumerate() {
-        let width = definition.widths()[index];
-        match width {
-            2 => BigEndian::write_u16(&mut instruction[offset..], *operand as u16),
-            _ => todo!(),
-        };
-        offset += width;
+    if let Some(operands) = operands {
+        let mut offset = 1;
+        for (index, operand) in operands.iter().enumerate() {
+            let width = definition.widths()[index];
+            match width {
+                2 => BigEndian::write_u16(&mut instruction[offset..], *operand as u16),
+                _ => todo!(),
+            };
+            offset += width;
+        }
     }
 
     instruction
@@ -166,7 +174,7 @@ mod tests {
         ];
 
         for (opcode, operands, expected) in tests {
-            let instruction = make(opcode, &operands);
+            let instruction = make(opcode, Some(&operands));
 
             assert_eq!(instruction, expected);
         }
@@ -179,9 +187,9 @@ mod tests {
 0004 OpConstant 65535
 "#;
         let instructions = vec![
-            make(Opcode::OpAdd, &vec![]),
-            make(Opcode::OpConstant, &vec![2]),
-            make(Opcode::OpConstant, &vec![65535]),
+            make(Opcode::OpAdd, None),
+            make(Opcode::OpConstant, Some(&vec![2])),
+            make(Opcode::OpConstant, Some(&vec![65535])),
         ]
         .into_iter()
         .flatten()
@@ -199,7 +207,7 @@ mod tests {
         let tests = vec![(Opcode::OpConstant, vec![65535], 2)];
 
         for (opcode, operands, expected_offset) in tests {
-            let instruction = make(opcode, &operands);
+            let instruction = make(opcode, Some(&operands));
             let definition = OpcodeDefinition::lookup(&opcode);
             let (operand, offset) = read_operands(&definition, &instruction[1..].to_vec());
             assert_eq!(offset, expected_offset);
