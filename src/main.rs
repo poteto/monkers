@@ -75,7 +75,7 @@ impl<'strategy> REPL<'strategy> {
                 if let Err(err) = vm.run() {
                     eprintln!("{:?}", err);
                 }
-                vm.last_popped_stack_element().map(|ir| ir.clone())
+                Some(vm.last_popped_stack_element())
             }
             EvalStrategy::Interpreted => {
                 let mut interpreter =

@@ -82,6 +82,8 @@ impl VM {
         Ok(())
     }
 
+    /// VM::pop decrements the stack_ptr but does not remove the element from the stack. We return
+    /// a clone here as the popped element may be overwritten at a later point.
     fn pop(&mut self) -> IR {
         let ir = self
             .stack
@@ -98,8 +100,11 @@ impl VM {
         }
     }
 
-    pub fn last_popped_stack_element(&self) -> Option<&IR> {
-        self.stack.get(self.stack_ptr)
+    pub fn last_popped_stack_element(&self) -> IR {
+        self.stack
+            .get(self.stack_ptr)
+            .expect("Tried to pop out of bounds index")
+            .clone()
     }
 }
 
@@ -146,10 +151,10 @@ mod tests {
         }
     }
 
-    fn test_expected_object(expected: &IR, actual: &IR) {
+    fn test_expected_object(expected: &IR, actual: IR) {
         match (expected, actual) {
             (IR::Integer(expected_value), IR::Integer(actual_value)) => {
-                assert_eq!(expected_value, actual_value)
+                assert_eq!(expected_value, &actual_value)
             }
             (expected_ir, actual_ir) => todo!(
                 "Unexpected comparison between {} and {}",
@@ -164,10 +169,7 @@ mod tests {
             let bytecode = test.compile();
             let mut vm = VM::new(bytecode);
             assert!(vm.run().is_ok());
-            match vm.last_popped_stack_element() {
-                Some(element) => test_expected_object(&test.expected, element),
-                None => panic!("out of bounds"),
-            }
+            test_expected_object(&test.expected, vm.last_popped_stack_element())
         }
     }
 
