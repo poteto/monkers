@@ -49,6 +49,9 @@ impl VM {
                         _ => return Err(VMError::NotImplementedYet),
                     };
                 }
+                Ok(Opcode::OpPop) => {
+                    self.pop();
+                }
                 _ => return Err(VMError::NotImplementedYet),
             };
             instruction_ptr += 1;
@@ -79,10 +82,15 @@ impl VM {
         Ok(())
     }
 
+    /// VM::pop decrements the stack_ptr but does not remove the element from the stack. We return
+    /// a clone here as the popped element may be overwritten at a later point.
     fn pop(&mut self) -> IR {
-        let ir = self.stack.remove(self.stack_ptr - 1);
+        let ir = self
+            .stack
+            .get(self.stack_ptr - 1)
+            .expect("Tried to pop out of bounds index");
         self.stack_ptr -= 1;
-        ir
+        ir.clone()
     }
 
     pub fn stack_top(&self) -> Option<&IR> {
@@ -90,6 +98,13 @@ impl VM {
             0 => None,
             n => self.stack.get(n - 1),
         }
+    }
+
+    pub fn last_popped_stack_element(&self) -> IR {
+        self.stack
+            .get(self.stack_ptr)
+            .expect("Tried to pop out of bounds index")
+            .clone()
     }
 }
 
@@ -136,10 +151,10 @@ mod tests {
         }
     }
 
-    fn test_expected_object(expected: IR, actual: &IR) {
+    fn test_expected_object(expected: &IR, actual: IR) {
         match (expected, actual) {
             (IR::Integer(expected_value), IR::Integer(actual_value)) => {
-                assert_eq!(expected_value, *actual_value)
+                assert_eq!(expected_value, &actual_value)
             }
             (expected_ir, actual_ir) => todo!(
                 "Unexpected comparison between {} and {}",
@@ -154,18 +169,15 @@ mod tests {
             let bytecode = test.compile();
             let mut vm = VM::new(bytecode);
             assert!(vm.run().is_ok());
-            match vm.stack_top() {
-                Some(element) => test_expected_object(test.expected, element),
-                None => {} //panic!("No elements found in stack"),
-            }
+            test_expected_object(&test.expected, vm.last_popped_stack_element())
         }
     }
 
     #[test]
     fn it_evaluates_integer_arithmetic() {
         let tests = vec![
-            // VMTestCase::new("1", IR::Integer(1)),
-            // VMTestCase::new("2", IR::Integer(2)),
+            VMTestCase::new("1", IR::Integer(1)),
+            VMTestCase::new("2", IR::Integer(2)),
             VMTestCase::new("1 + 2", IR::Integer(3)),
         ];
         run_vm_tests(tests);

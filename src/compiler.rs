@@ -40,7 +40,11 @@ impl Compiler {
 
     fn compile_statement(&self, statement: &Statement) -> Result<(), CompilerError> {
         match statement {
-            Statement::Expression(expression) => self.compile_expression(expression),
+            Statement::Expression(expression) => {
+                self.compile_expression(expression)?;
+                self.emit(Opcode::OpPop, None);
+                Ok(())
+            }
             _ => Err(CompilerError::NotImplementedYet),
         }
     }
@@ -51,7 +55,7 @@ impl Compiler {
                 self.compile_expression(left)?;
                 self.compile_expression(right)?;
                 match operator {
-                    Token::Plus => self.emit(Opcode::OpAdd, &vec![]),
+                    Token::Plus => self.emit(Opcode::OpAdd, None),
                     _ => return Err(CompilerError::NotImplementedYet),
                 };
                 Ok(())
@@ -59,7 +63,7 @@ impl Compiler {
             Expression::Integer(value) => {
                 self.emit(
                     Opcode::OpConstant,
-                    &vec![self.add_constant(IR::Integer(*value))],
+                    Some(&vec![self.add_constant(IR::Integer(*value))]),
                 );
                 Ok(())
             }
@@ -67,7 +71,7 @@ impl Compiler {
         }
     }
 
-    fn emit(&self, opcode: Opcode, operands: &Vec<usize>) -> usize {
+    fn emit(&self, opcode: Opcode, operands: Option<&Vec<usize>>) -> usize {
         let mut instruction = code::make(opcode, operands);
         self.add_instructions(&mut instruction)
     }
@@ -189,15 +193,28 @@ mod tests {
 
     #[test]
     fn it_compiles_integer_arithmectic() {
-        let tests = vec![CompilerTestCase::new(
-            "1 + 2",
-            vec![IR::Integer(1), IR::Integer(2)],
-            vec![
-                make(Opcode::OpConstant, &vec![0]),
-                make(Opcode::OpConstant, &vec![1]),
-                make(Opcode::OpAdd, &vec![]),
-            ],
-        )];
+        let tests = vec![
+            CompilerTestCase::new(
+                "1 + 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpAdd, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1; 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpPop, None),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+        ];
 
         run_compiler_tests(tests);
     }
