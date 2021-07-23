@@ -12,6 +12,7 @@ const STACK_SIZE: usize = 2048;
 pub enum VMError {
     NotImplementedYet,
     StackOverflow,
+    UnknownIntegerOperator(Opcode),
 }
 
 pub struct VM {
@@ -40,14 +41,16 @@ impl VM {
                     self.push_index(const_index.into())?;
                 }
                 Ok(Opcode::OpAdd) => {
-                    let right = self.pop();
-                    let left = self.pop();
-                    match (left, right) {
-                        (IR::Integer(left_value), IR::Integer(right_value)) => {
-                            self.push(IR::Integer(left_value + right_value))?;
-                        }
-                        _ => return Err(VMError::NotImplementedYet),
-                    };
+                    self.execute_binary_operation(Opcode::OpAdd)?;
+                }
+                Ok(Opcode::OpSub) => {
+                    self.execute_binary_operation(Opcode::OpSub)?;
+                }
+                Ok(Opcode::OpMul) => {
+                    self.execute_binary_operation(Opcode::OpMul)?;
+                }
+                Ok(Opcode::OpDiv) => {
+                    self.execute_binary_operation(Opcode::OpDiv)?;
                 }
                 Ok(Opcode::OpPop) => {
                     self.pop();
@@ -105,6 +108,21 @@ impl VM {
             .get(self.stack_ptr)
             .expect("Tried to pop out of bounds index")
             .clone()
+    }
+
+    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
+        let right = self.pop();
+        let left = self.pop();
+        match (left, right) {
+            (IR::Integer(left_value), IR::Integer(right_value)) => match op {
+                Opcode::OpAdd => self.push(IR::Integer(left_value + right_value)),
+                Opcode::OpSub => self.push(IR::Integer(left_value - right_value)),
+                Opcode::OpMul => self.push(IR::Integer(left_value * right_value)),
+                Opcode::OpDiv => self.push(IR::Integer(left_value / right_value)),
+                opcode => Err(VMError::UnknownIntegerOperator(opcode)),
+            },
+            _ => Err(VMError::NotImplementedYet),
+        }
     }
 }
 
@@ -179,6 +197,15 @@ mod tests {
             VMTestCase::new("1", IR::Integer(1)),
             VMTestCase::new("2", IR::Integer(2)),
             VMTestCase::new("1 + 2", IR::Integer(3)),
+            VMTestCase::new("1 - 2", IR::Integer(-1)),
+            VMTestCase::new("1 * 2", IR::Integer(2)),
+            VMTestCase::new("4 / 2", IR::Integer(2)),
+            VMTestCase::new("50 / 2 * 2 + 10 - 5", IR::Integer(55)),
+            VMTestCase::new("5 + 5 + 5 + 5 - 10", IR::Integer(10)),
+            VMTestCase::new("2 * 2 * 2 * 2 * 2", IR::Integer(32)),
+            VMTestCase::new("5 * 2 + 10", IR::Integer(20)),
+            VMTestCase::new("5 + 2 * 10", IR::Integer(25)),
+            VMTestCase::new("5 * (2 + 10)", IR::Integer(60)),
         ];
         run_vm_tests(tests);
     }
