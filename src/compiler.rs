@@ -56,6 +56,9 @@ impl Compiler {
                 self.compile_expression(right)?;
                 match operator {
                     Token::Plus => self.emit(Opcode::OpAdd, None),
+                    Token::Minus => self.emit(Opcode::OpSub, None),
+                    Token::Asterisk => self.emit(Opcode::OpMul, None),
+                    Token::Slash => self.emit(Opcode::OpDiv, None),
                     _ => return Err(CompilerError::NotImplementedYet),
                 };
                 Ok(())
@@ -211,6 +214,36 @@ mod tests {
                     make(Opcode::OpConstant, Some(&vec![0])),
                     make(Opcode::OpPop, None),
                     make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 - 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpSub, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 * 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpMul, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 / 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpDiv, None),
                     make(Opcode::OpPop, None),
                 ],
             ),

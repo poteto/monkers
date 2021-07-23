@@ -10,12 +10,15 @@ pub enum CodeError {
 }
 
 // Opcodes are represented by a single byte.
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Opcode {
     OpConstant = 0,
     OpAdd,
     OpPop,
+    OpSub,
+    OpMul,
+    OpDiv,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -27,6 +30,9 @@ impl TryFrom<Byte> for Opcode {
             0 => Ok(Opcode::OpConstant),
             1 => Ok(Opcode::OpAdd),
             2 => Ok(Opcode::OpPop),
+            3 => Ok(Opcode::OpSub),
+            4 => Ok(Opcode::OpMul),
+            5 => Ok(Opcode::OpDiv),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -38,6 +44,9 @@ pub enum OpcodeDefinition<'operand> {
     OpConstant(&'operand [usize]),
     OpAdd,
     OpPop,
+    OpSub,
+    OpMul,
+    OpDiv,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -46,6 +55,9 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpConstant => OpcodeDefinition::OpConstant(&[2]),
             Opcode::OpAdd => OpcodeDefinition::OpAdd,
             Opcode::OpPop => OpcodeDefinition::OpPop,
+            Opcode::OpSub => OpcodeDefinition::OpSub,
+            Opcode::OpMul => OpcodeDefinition::OpMul,
+            Opcode::OpDiv => OpcodeDefinition::OpDiv,
         }
     }
 
@@ -56,8 +68,11 @@ impl<'operand> OpcodeDefinition<'operand> {
     pub fn widths(&self) -> &[usize] {
         match self {
             OpcodeDefinition::OpConstant(widths) => widths,
-            OpcodeDefinition::OpAdd => &[],
-            OpcodeDefinition::OpPop => &[],
+            OpcodeDefinition::OpAdd
+            | OpcodeDefinition::OpPop
+            | OpcodeDefinition::OpSub
+            | OpcodeDefinition::OpMul
+            | OpcodeDefinition::OpDiv => &[],
         }
     }
 }
@@ -68,6 +83,9 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             OpcodeDefinition::OpConstant(_) => write!(f, "OpConstant"),
             OpcodeDefinition::OpAdd => write!(f, "OpAdd"),
             OpcodeDefinition::OpPop => write!(f, "OpPop"),
+            OpcodeDefinition::OpSub => write!(f, "OpSub"),
+            OpcodeDefinition::OpMul => write!(f, "OpMul"),
+            OpcodeDefinition::OpDiv => write!(f, "OpDiv"),
         }
     }
 }
