@@ -9,7 +9,7 @@ use crate::{
 
 #[derive(Debug)]
 pub enum CompilerError {
-    NotImplementedYet,
+    NotImplementedYet(String),
 }
 
 pub struct Bytecode {
@@ -45,21 +45,44 @@ impl Compiler {
                 self.emit(Opcode::OpPop, None);
                 Ok(())
             }
-            _ => Err(CompilerError::NotImplementedYet),
+            statement => Err(CompilerError::NotImplementedYet(format!(
+                "{:#?}",
+                statement
+            ))),
         }
     }
 
     fn compile_expression(&self, expression: &Expression) -> Result<(), CompilerError> {
         match expression {
             Expression::Infix(operator, left, right) => {
-                self.compile_expression(left)?;
-                self.compile_expression(right)?;
                 match operator {
-                    Token::Plus => self.emit(Opcode::OpAdd, None),
-                    Token::Minus => self.emit(Opcode::OpSub, None),
-                    Token::Asterisk => self.emit(Opcode::OpMul, None),
-                    Token::Slash => self.emit(Opcode::OpDiv, None),
-                    _ => return Err(CompilerError::NotImplementedYet),
+                    // SPECIAL CASE
+                    // We can always reorder a < b expressions into b > a, so we don't need an
+                    // OpLesserThan instruction. Note that right is compiled before left.
+                    Token::LessThan => {
+                        self.compile_expression(right)?;
+                        self.compile_expression(left)?;
+                        self.emit(Opcode::OpGreaterThan, None);
+                    }
+                    operator => {
+                        self.compile_expression(left)?;
+                        self.compile_expression(right)?;
+                        match operator {
+                            Token::Plus => self.emit(Opcode::OpAdd, None),
+                            Token::Minus => self.emit(Opcode::OpSub, None),
+                            Token::Asterisk => self.emit(Opcode::OpMul, None),
+                            Token::Slash => self.emit(Opcode::OpDiv, None),
+                            Token::GreaterThan => self.emit(Opcode::OpGreaterThan, None),
+                            Token::Equal => self.emit(Opcode::OpEqual, None),
+                            Token::NotEqual => self.emit(Opcode::OpNotEqual, None),
+                            operator => {
+                                return Err(CompilerError::NotImplementedYet(format!(
+                                    "{:#?}",
+                                    operator
+                                )))
+                            }
+                        };
+                    }
                 };
                 Ok(())
             }
@@ -77,7 +100,10 @@ impl Compiler {
                 };
                 Ok(())
             }
-            _ => Err(CompilerError::NotImplementedYet),
+            expression => Err(CompilerError::NotImplementedYet(format!(
+                "{:#?}",
+                expression
+            ))),
         }
     }
 
@@ -272,6 +298,66 @@ mod tests {
                 "false",
                 vec![],
                 vec![make(Opcode::OpFalse, None), make(Opcode::OpPop, None)],
+            ),
+            CompilerTestCase::new(
+                "1 > 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpGreaterThan, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 < 2",
+                vec![IR::Integer(2), IR::Integer(1)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpGreaterThan, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 == 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpEqual, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "1 != 2",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpNotEqual, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "true == false",
+                vec![],
+                vec![
+                    make(Opcode::OpTrue, None),
+                    make(Opcode::OpFalse, None),
+                    make(Opcode::OpEqual, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "true != false",
+                vec![],
+                vec![
+                    make(Opcode::OpTrue, None),
+                    make(Opcode::OpFalse, None),
+                    make(Opcode::OpNotEqual, None),
+                    make(Opcode::OpPop, None),
+                ],
             ),
         ];
         run_compiler_tests(tests);

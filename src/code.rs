@@ -21,6 +21,9 @@ pub enum Opcode {
     OpDiv,
     OpTrue,
     OpFalse,
+    OpEqual,
+    OpNotEqual,
+    OpGreaterThan,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -29,14 +32,17 @@ impl TryFrom<Byte> for Opcode {
 
     fn try_from(op: Byte) -> Result<Self, Self::Error> {
         match op {
-            0 => Ok(Opcode::OpConstant),
-            1 => Ok(Opcode::OpAdd),
-            2 => Ok(Opcode::OpPop),
-            3 => Ok(Opcode::OpSub),
-            4 => Ok(Opcode::OpMul),
-            5 => Ok(Opcode::OpDiv),
-            6 => Ok(Opcode::OpTrue),
-            7 => Ok(Opcode::OpFalse),
+            0 => Ok(Self::OpConstant),
+            1 => Ok(Self::OpAdd),
+            2 => Ok(Self::OpPop),
+            3 => Ok(Self::OpSub),
+            4 => Ok(Self::OpMul),
+            5 => Ok(Self::OpDiv),
+            6 => Ok(Self::OpTrue),
+            7 => Ok(Self::OpFalse),
+            8 => Ok(Self::OpEqual),
+            9 => Ok(Self::OpNotEqual),
+            10 => Ok(Self::OpGreaterThan),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -53,19 +59,25 @@ pub enum OpcodeDefinition<'operand> {
     OpDiv,
     OpTrue,
     OpFalse,
+    OpEqual,
+    OpNotEqual,
+    OpGreaterThan,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
     pub fn lookup(opcode: &Opcode) -> OpcodeDefinition<'operand> {
         match opcode {
-            Opcode::OpConstant => OpcodeDefinition::OpConstant(&[2]),
-            Opcode::OpAdd => OpcodeDefinition::OpAdd,
-            Opcode::OpPop => OpcodeDefinition::OpPop,
-            Opcode::OpSub => OpcodeDefinition::OpSub,
-            Opcode::OpMul => OpcodeDefinition::OpMul,
-            Opcode::OpDiv => OpcodeDefinition::OpDiv,
-            Opcode::OpTrue => OpcodeDefinition::OpTrue,
-            Opcode::OpFalse => OpcodeDefinition::OpFalse,
+            Opcode::OpConstant => Self::OpConstant(&[2]),
+            Opcode::OpAdd => Self::OpAdd,
+            Opcode::OpPop => Self::OpPop,
+            Opcode::OpSub => Self::OpSub,
+            Opcode::OpMul => Self::OpMul,
+            Opcode::OpDiv => Self::OpDiv,
+            Opcode::OpTrue => Self::OpTrue,
+            Opcode::OpFalse => Self::OpFalse,
+            Opcode::OpEqual => Self::OpEqual,
+            Opcode::OpNotEqual => Self::OpNotEqual,
+            Opcode::OpGreaterThan => Self::OpGreaterThan,
         }
     }
 
@@ -75,14 +87,17 @@ impl<'operand> OpcodeDefinition<'operand> {
 
     pub fn widths(&self) -> &[usize] {
         match self {
-            OpcodeDefinition::OpConstant(widths) => widths,
-            OpcodeDefinition::OpAdd
-            | OpcodeDefinition::OpPop
-            | OpcodeDefinition::OpSub
-            | OpcodeDefinition::OpMul
-            | OpcodeDefinition::OpDiv
-            | OpcodeDefinition::OpTrue
-            | OpcodeDefinition::OpFalse => &[],
+            Self::OpConstant(widths) => widths,
+            Self::OpAdd
+            | Self::OpPop
+            | Self::OpSub
+            | Self::OpMul
+            | Self::OpDiv
+            | Self::OpTrue
+            | Self::OpFalse
+            | Self::OpEqual
+            | Self::OpNotEqual
+            | Self::OpGreaterThan => &[],
         }
     }
 }
@@ -90,14 +105,17 @@ impl<'operand> OpcodeDefinition<'operand> {
 impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            OpcodeDefinition::OpConstant(_) => write!(f, "OpConstant"),
-            OpcodeDefinition::OpAdd => write!(f, "OpAdd"),
-            OpcodeDefinition::OpPop => write!(f, "OpPop"),
-            OpcodeDefinition::OpSub => write!(f, "OpSub"),
-            OpcodeDefinition::OpMul => write!(f, "OpMul"),
-            OpcodeDefinition::OpDiv => write!(f, "OpDiv"),
-            OpcodeDefinition::OpTrue => write!(f, "OpTrue"),
-            OpcodeDefinition::OpFalse => write!(f, "OpFalse"),
+            Self::OpConstant(_) => write!(f, "OpConstant"),
+            Self::OpAdd => write!(f, "OpAdd"),
+            Self::OpPop => write!(f, "OpPop"),
+            Self::OpSub => write!(f, "OpSub"),
+            Self::OpMul => write!(f, "OpMul"),
+            Self::OpDiv => write!(f, "OpDiv"),
+            Self::OpTrue => write!(f, "OpTrue"),
+            Self::OpFalse => write!(f, "OpFalse"),
+            Self::OpEqual => write!(f, "OpEqual"),
+            Self::OpNotEqual => write!(f, "OpNotEqual"),
+            Self::OpGreaterThan => write!(f, "OpGreaterThan"),
         }
     }
 }
