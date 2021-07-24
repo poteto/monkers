@@ -19,6 +19,8 @@ pub enum Opcode {
     OpSub,
     OpMul,
     OpDiv,
+    OpTrue,
+    OpFalse,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -33,6 +35,8 @@ impl TryFrom<Byte> for Opcode {
             3 => Ok(Opcode::OpSub),
             4 => Ok(Opcode::OpMul),
             5 => Ok(Opcode::OpDiv),
+            6 => Ok(Opcode::OpTrue),
+            7 => Ok(Opcode::OpFalse),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -47,6 +51,8 @@ pub enum OpcodeDefinition<'operand> {
     OpSub,
     OpMul,
     OpDiv,
+    OpTrue,
+    OpFalse,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -58,6 +64,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpSub => OpcodeDefinition::OpSub,
             Opcode::OpMul => OpcodeDefinition::OpMul,
             Opcode::OpDiv => OpcodeDefinition::OpDiv,
+            Opcode::OpTrue => OpcodeDefinition::OpTrue,
+            Opcode::OpFalse => OpcodeDefinition::OpFalse,
         }
     }
 
@@ -72,7 +80,9 @@ impl<'operand> OpcodeDefinition<'operand> {
             | OpcodeDefinition::OpPop
             | OpcodeDefinition::OpSub
             | OpcodeDefinition::OpMul
-            | OpcodeDefinition::OpDiv => &[],
+            | OpcodeDefinition::OpDiv
+            | OpcodeDefinition::OpTrue
+            | OpcodeDefinition::OpFalse => &[],
         }
     }
 }
@@ -86,6 +96,8 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             OpcodeDefinition::OpSub => write!(f, "OpSub"),
             OpcodeDefinition::OpMul => write!(f, "OpMul"),
             OpcodeDefinition::OpDiv => write!(f, "OpDiv"),
+            OpcodeDefinition::OpTrue => write!(f, "OpTrue"),
+            OpcodeDefinition::OpFalse => write!(f, "OpFalse"),
         }
     }
 }

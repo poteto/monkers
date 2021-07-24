@@ -7,6 +7,8 @@ use crate::{
 };
 
 const STACK_SIZE: usize = 2048;
+const TRUE: IR = IR::Boolean(true);
+const FALSE: IR = IR::Boolean(false);
 
 #[derive(Debug)]
 pub enum VMError {
@@ -34,32 +36,38 @@ impl VM {
         let mut instruction_ptr = 0;
         while instruction_ptr < self.bytecode.instructions.len() {
             match Opcode::try_from(self.bytecode.instructions[instruction_ptr]) {
-                Ok(Opcode::OpConstant) => {
-                    let const_index =
-                        code::read_u16(&self.bytecode.instructions[(instruction_ptr + 1)..]);
-                    instruction_ptr += 2;
-                    self.push_index(const_index.into())?;
-                }
-                Ok(Opcode::OpAdd) => {
-                    self.execute_binary_operation(Opcode::OpAdd)?;
-                }
-                Ok(Opcode::OpSub) => {
-                    self.execute_binary_operation(Opcode::OpSub)?;
-                }
-                Ok(Opcode::OpMul) => {
-                    self.execute_binary_operation(Opcode::OpMul)?;
-                }
-                Ok(Opcode::OpDiv) => {
-                    self.execute_binary_operation(Opcode::OpDiv)?;
-                }
-                Ok(Opcode::OpPop) => {
-                    self.pop();
-                }
+                Ok(opcode) => self.execute_instruction(opcode, &mut instruction_ptr)?,
                 _ => return Err(VMError::NotImplementedYet),
             };
             instruction_ptr += 1;
         }
         Ok(())
+    }
+
+    fn execute_instruction(
+        &mut self,
+        opcode: Opcode,
+        instruction_ptr: &mut usize,
+    ) -> Result<(), VMError> {
+        match opcode {
+            Opcode::OpConstant => {
+                let const_index =
+                    code::read_u16(&self.bytecode.instructions[(*instruction_ptr + 1)..]);
+                *instruction_ptr += 2;
+                self.push_index(const_index.into())?;
+                Ok(())
+            }
+            Opcode::OpAdd => self.execute_binary_operation(Opcode::OpAdd),
+            Opcode::OpSub => self.execute_binary_operation(Opcode::OpSub),
+            Opcode::OpMul => self.execute_binary_operation(Opcode::OpMul),
+            Opcode::OpDiv => self.execute_binary_operation(Opcode::OpDiv),
+            Opcode::OpPop => {
+                self.pop();
+                Ok(())
+            }
+            Opcode::OpTrue => self.push(TRUE),
+            Opcode::OpFalse => self.push(FALSE),
+        }
     }
 
     fn push(&mut self, ir: IR) -> Result<(), VMError> {
@@ -174,6 +182,9 @@ mod tests {
             (IR::Integer(expected_value), IR::Integer(actual_value)) => {
                 assert_eq!(expected_value, &actual_value)
             }
+            (IR::Boolean(expected_value), IR::Boolean(actual_value)) => {
+                assert_eq!(expected_value, &actual_value)
+            }
             (expected_ir, actual_ir) => todo!(
                 "Unexpected comparison between {} and {}",
                 expected_ir,
@@ -186,8 +197,10 @@ mod tests {
         for test in tests {
             let bytecode = test.compile();
             let mut vm = VM::new(bytecode);
-            assert!(vm.run().is_ok());
-            test_expected_object(&test.expected, vm.last_popped_stack_element())
+            match vm.run() {
+                Ok(_) => test_expected_object(&test.expected, vm.last_popped_stack_element()),
+                Err(error) => panic!("{:#?}", error),
+            }
         }
     }
 
@@ -206,6 +219,15 @@ mod tests {
             VMTestCase::new("5 * 2 + 10", IR::Integer(20)),
             VMTestCase::new("5 + 2 * 10", IR::Integer(25)),
             VMTestCase::new("5 * (2 + 10)", IR::Integer(60)),
+        ];
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn it_evaluates_boolean_expressions() {
+        let tests = vec![
+            VMTestCase::new("true", IR::Boolean(true)),
+            VMTestCase::new("false", IR::Boolean(false)),
         ];
         run_vm_tests(tests);
     }

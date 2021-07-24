@@ -70,6 +70,13 @@ impl Compiler {
                 );
                 Ok(())
             }
+            Expression::Boolean(value) => {
+                match value {
+                    true => self.emit(Opcode::OpTrue, None),
+                    false => self.emit(Opcode::OpFalse, None),
+                };
+                Ok(())
+            }
             _ => Err(CompilerError::NotImplementedYet),
         }
     }
@@ -145,8 +152,10 @@ mod tests {
         fn compile(&self) -> Bytecode {
             let program = self.parse();
             let compiler = Compiler::new();
-            assert!(compiler.compile(&program).is_ok());
-            compiler.to_bytecode()
+            match compiler.compile(&program) {
+                Ok(_) => compiler.to_bytecode(),
+                Err(error) => panic!("{:#?}", error),
+            }
         }
     }
 
@@ -248,7 +257,23 @@ mod tests {
                 ],
             ),
         ];
+        run_compiler_tests(tests);
+    }
 
+    #[test]
+    fn it_evaluates_boolean_expressions() {
+        let tests = vec![
+            CompilerTestCase::new(
+                "true",
+                vec![],
+                vec![make(Opcode::OpTrue, None), make(Opcode::OpPop, None)],
+            ),
+            CompilerTestCase::new(
+                "false",
+                vec![],
+                vec![make(Opcode::OpFalse, None), make(Opcode::OpPop, None)],
+            ),
+        ];
         run_compiler_tests(tests);
     }
 }
