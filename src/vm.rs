@@ -70,6 +70,21 @@ impl VM {
         }
     }
 
+    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
+        let right = self.pop();
+        let left = self.pop();
+        match (left, right) {
+            (IR::Integer(left_value), IR::Integer(right_value)) => match op {
+                Opcode::OpAdd => self.push(IR::Integer(left_value + right_value)),
+                Opcode::OpSub => self.push(IR::Integer(left_value - right_value)),
+                Opcode::OpMul => self.push(IR::Integer(left_value * right_value)),
+                Opcode::OpDiv => self.push(IR::Integer(left_value / right_value)),
+                opcode => Err(VMError::UnknownIntegerOperator(opcode)),
+            },
+            _ => Err(VMError::NotImplementedYet),
+        }
+    }
+
     fn push(&mut self, ir: IR) -> Result<(), VMError> {
         if self.stack_ptr >= STACK_SIZE {
             return Err(VMError::StackOverflow);
@@ -116,21 +131,6 @@ impl VM {
             .get(self.stack_ptr)
             .expect("Tried to pop out of bounds index")
             .clone()
-    }
-
-    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
-        let right = self.pop();
-        let left = self.pop();
-        match (left, right) {
-            (IR::Integer(left_value), IR::Integer(right_value)) => match op {
-                Opcode::OpAdd => self.push(IR::Integer(left_value + right_value)),
-                Opcode::OpSub => self.push(IR::Integer(left_value - right_value)),
-                Opcode::OpMul => self.push(IR::Integer(left_value * right_value)),
-                Opcode::OpDiv => self.push(IR::Integer(left_value / right_value)),
-                opcode => Err(VMError::UnknownIntegerOperator(opcode)),
-            },
-            _ => Err(VMError::NotImplementedYet),
-        }
     }
 }
 
