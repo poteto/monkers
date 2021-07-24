@@ -14,7 +14,7 @@ const FALSE: IR = IR::Boolean(false);
 pub enum VMError {
     NotImplementedYet,
     StackOverflow,
-    UnknownIntegerOperator(Opcode),
+    UnknownOperator(Opcode),
 }
 
 pub struct VM {
@@ -67,22 +67,46 @@ impl VM {
             }
             Opcode::OpTrue => self.push(TRUE),
             Opcode::OpFalse => self.push(FALSE),
-            _ => Err(VMError::NotImplementedYet),
+            Opcode::OpEqual | Opcode::OpNotEqual | Opcode::OpGreaterThan => {
+                self.execute_comparison(opcode)
+            }
         }
     }
 
-    fn execute_binary_operation(&mut self, op: Opcode) -> Result<(), VMError> {
+    fn execute_binary_operation(&mut self, opcode: Opcode) -> Result<(), VMError> {
         let right = self.pop();
         let left = self.pop();
         match (left, right) {
-            (IR::Integer(left_value), IR::Integer(right_value)) => match op {
+            (IR::Integer(left_value), IR::Integer(right_value)) => match opcode {
                 Opcode::OpAdd => self.push(IR::Integer(left_value + right_value)),
                 Opcode::OpSub => self.push(IR::Integer(left_value - right_value)),
                 Opcode::OpMul => self.push(IR::Integer(left_value * right_value)),
                 Opcode::OpDiv => self.push(IR::Integer(left_value / right_value)),
-                opcode => Err(VMError::UnknownIntegerOperator(opcode)),
+                opcode => Err(VMError::UnknownOperator(opcode)),
             },
             _ => Err(VMError::NotImplementedYet),
+        }
+    }
+
+    fn execute_comparison(&mut self, opcode: Opcode) -> Result<(), VMError> {
+        let right = self.pop();
+        let left = self.pop();
+        match (left, right) {
+            (IR::Integer(left_value), IR::Integer(right_value)) => match opcode {
+                Opcode::OpEqual => self.push(self.get_interned_bool(&(right_value == left_value))),
+                Opcode::OpNotEqual => {
+                    self.push(self.get_interned_bool(&(right_value != left_value)))
+                }
+                Opcode::OpGreaterThan => {
+                    self.push(self.get_interned_bool(&(left_value > right_value)))
+                }
+                opcode => Err(VMError::UnknownOperator(opcode)),
+            },
+            (left, right) => match opcode {
+                Opcode::OpEqual => self.push(self.get_interned_bool(&(right == left))),
+                Opcode::OpNotEqual => self.push(self.get_interned_bool(&(right != left))),
+                opcode => Err(VMError::UnknownOperator(opcode)),
+            },
         }
     }
 
@@ -132,6 +156,13 @@ impl VM {
             .get(self.stack_ptr)
             .expect("Tried to pop out of bounds index")
             .clone()
+    }
+
+    fn get_interned_bool(&self, native_value: &bool) -> IR {
+        match native_value {
+            true => TRUE,
+            false => FALSE,
+        }
     }
 }
 
@@ -229,6 +260,23 @@ mod tests {
         let tests = vec![
             VMTestCase::new("true", IR::Boolean(true)),
             VMTestCase::new("false", IR::Boolean(false)),
+            VMTestCase::new("1 < 2", IR::Boolean(true)),
+            VMTestCase::new("1 > 2", IR::Boolean(false)),
+            VMTestCase::new("1 < 1", IR::Boolean(false)),
+            VMTestCase::new("1 > 1", IR::Boolean(false)),
+            VMTestCase::new("1 == 1", IR::Boolean(true)),
+            VMTestCase::new("1 != 1", IR::Boolean(false)),
+            VMTestCase::new("1 == 2", IR::Boolean(false)),
+            VMTestCase::new("1 != 2", IR::Boolean(true)),
+            VMTestCase::new("true == true", IR::Boolean(true)),
+            VMTestCase::new("false == false", IR::Boolean(true)),
+            VMTestCase::new("true == false", IR::Boolean(false)),
+            VMTestCase::new("true != false", IR::Boolean(true)),
+            VMTestCase::new("false != true", IR::Boolean(true)),
+            VMTestCase::new("(1 < 2) == true", IR::Boolean(true)),
+            VMTestCase::new("(1 < 2) == false", IR::Boolean(false)),
+            VMTestCase::new("(1 > 2) == true", IR::Boolean(false)),
+            VMTestCase::new("(1 > 2) == false", IR::Boolean(true)),
         ];
         run_vm_tests(tests);
     }
