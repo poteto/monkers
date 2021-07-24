@@ -67,6 +67,7 @@ impl VM {
             }
             Opcode::OpTrue => self.push(TRUE),
             Opcode::OpFalse => self.push(FALSE),
+            _ => Err(VMError::NotImplementedYet),
         }
     }
 

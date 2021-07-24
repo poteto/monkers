@@ -21,6 +21,9 @@ pub enum Opcode {
     OpDiv,
     OpTrue,
     OpFalse,
+    OpEqual,
+    OpNotEqual,
+    OpGreaterThan,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -37,6 +40,9 @@ impl TryFrom<Byte> for Opcode {
             5 => Ok(Opcode::OpDiv),
             6 => Ok(Opcode::OpTrue),
             7 => Ok(Opcode::OpFalse),
+            8 => Ok(Opcode::OpEqual),
+            9 => Ok(Opcode::OpNotEqual),
+            10 => Ok(Opcode::OpGreaterThan),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -53,6 +59,9 @@ pub enum OpcodeDefinition<'operand> {
     OpDiv,
     OpTrue,
     OpFalse,
+    OpEqual,
+    OpNotEqual,
+    OpGreaterThan,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -66,6 +75,9 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpDiv => OpcodeDefinition::OpDiv,
             Opcode::OpTrue => OpcodeDefinition::OpTrue,
             Opcode::OpFalse => OpcodeDefinition::OpFalse,
+            Opcode::OpEqual => OpcodeDefinition::OpEqual,
+            Opcode::OpNotEqual => OpcodeDefinition::OpNotEqual,
+            Opcode::OpGreaterThan => OpcodeDefinition::OpGreaterThan,
         }
     }
 
@@ -82,7 +94,10 @@ impl<'operand> OpcodeDefinition<'operand> {
             | OpcodeDefinition::OpMul
             | OpcodeDefinition::OpDiv
             | OpcodeDefinition::OpTrue
-            | OpcodeDefinition::OpFalse => &[],
+            | OpcodeDefinition::OpFalse
+            | OpcodeDefinition::OpEqual
+            | OpcodeDefinition::OpNotEqual
+            | OpcodeDefinition::OpGreaterThan => &[],
         }
     }
 }
@@ -98,6 +113,9 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             OpcodeDefinition::OpDiv => write!(f, "OpDiv"),
             OpcodeDefinition::OpTrue => write!(f, "OpTrue"),
             OpcodeDefinition::OpFalse => write!(f, "OpFalse"),
+            OpcodeDefinition::OpEqual => write!(f, "OpEqual"),
+            OpcodeDefinition::OpNotEqual => write!(f, "OpNotEqual"),
+            OpcodeDefinition::OpGreaterThan => write!(f, "OpGreaterThan"),
         }
     }
 }
