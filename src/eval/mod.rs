@@ -83,10 +83,7 @@ impl Interpreter {
         Ok(result)
     }
 
-    fn eval_expressions(
-        &mut self,
-        expressions: &[Expression],
-    ) -> Result<Vec<Rc<IR>>, EvalError> {
+    fn eval_expressions(&mut self, expressions: &[Expression]) -> Result<Vec<Rc<IR>>, EvalError> {
         expressions
             .iter()
             .map(|arg| self.eval_expression(arg))

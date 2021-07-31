@@ -87,6 +87,17 @@ impl Compiler {
                 };
                 Ok(())
             }
+            Expression::Prefix(operator, right) => {
+                self.compile_expression(right)?;
+                match operator {
+                    Token::Bang => self.emit(Opcode::OpBang, None),
+                    Token::Minus => self.emit(Opcode::OpMinus, None),
+                    operator => {
+                        return Err(CompilerError::NotImplementedYet(format!("{:#?}", operator)))
+                    }
+                };
+                Ok(())
+            }
             Expression::Integer(value) => {
                 self.emit(
                     Opcode::OpConstant,
@@ -283,6 +294,15 @@ mod tests {
                     make(Opcode::OpPop, None),
                 ],
             ),
+            CompilerTestCase::new(
+                "-1",
+                vec![IR::Integer(1)],
+                vec![
+                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpMinus, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
         ];
         run_compiler_tests(tests);
     }
@@ -357,6 +377,15 @@ mod tests {
                     make(Opcode::OpTrue, None),
                     make(Opcode::OpFalse, None),
                     make(Opcode::OpNotEqual, None),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "!true",
+                vec![],
+                vec![
+                    make(Opcode::OpTrue, None),
+                    make(Opcode::OpBang, None),
                     make(Opcode::OpPop, None),
                 ],
             ),
