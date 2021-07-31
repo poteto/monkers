@@ -144,7 +144,7 @@ pub fn make(opcode: Opcode, operands: Option<&Vec<usize>>) -> Instructions {
 
 fn read_operands(
     definition: &OpcodeDefinition,
-    instructions: &Instructions,
+    instructions: &[Byte],
 ) -> (Vec<usize>, usize) {
     let mut operands = vec![0; definition.widths().len()];
     let mut offset = 0;
@@ -161,7 +161,7 @@ fn read_operands(
     (operands, offset)
 }
 
-pub fn disasemble(instructions: &Instructions) -> Result<String, CodeError> {
+pub fn disasemble(instructions: &[Byte]) -> Result<String, CodeError> {
     let mut buffer = String::new();
     let mut index = 0;
     while index < instructions.len() {

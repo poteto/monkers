@@ -11,18 +11,25 @@ pub struct Env {
     outer: Option<Rc<RefCell<Env>>>,
 }
 
-impl Env {
-    pub fn new() -> Self {
+impl Default for Env {
+    fn default() -> Self {
         Self {
             store: Default::default(),
             outer: Default::default(),
         }
     }
+}
+
+impl Env {
+    pub fn new(outer: Rc<RefCell<Env>>) -> Self {
+        Self {
+            store: Default::default(),
+            outer: Some(outer),
+        }
+    }
 
     pub fn with_outer(outer: Rc<RefCell<Env>>) -> Self {
-        let mut env = Env::new();
-        env.outer = Some(outer);
-        env
+        Env::new(outer)
     }
 
     pub fn get(&self, key: &SymbolU32) -> Option<Rc<IR>> {

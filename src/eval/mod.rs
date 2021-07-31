@@ -41,12 +41,12 @@ impl Interpreter {
         }
     }
 
-    fn eval_program(&mut self, statements: &Vec<Statement>) -> EvalResult {
+    fn eval_program(&mut self, statements: &[Statement]) -> EvalResult {
         let mut result = Rc::new(IR::Nothing);
         for statement in statements {
             let value = self.eval_statement(statement)?;
             match &*value {
-                IR::ReturnValue(value) => return Ok(Rc::clone(&value)),
+                IR::ReturnValue(value) => return Ok(Rc::clone(value)),
                 _ => result = value,
             };
         }
@@ -85,7 +85,7 @@ impl Interpreter {
 
     fn eval_expressions(
         &mut self,
-        expressions: &Vec<Expression>,
+        expressions: &[Expression],
     ) -> Result<Vec<Rc<IR>>, EvalError> {
         expressions
             .iter()
@@ -96,7 +96,7 @@ impl Interpreter {
     fn eval_expression(&mut self, expression: &Expression) -> EvalResult {
         match expression {
             Expression::Identifier(Identifier(identifier_key)) => {
-                match self.env.borrow_mut().get(&identifier_key) {
+                match self.env.borrow_mut().get(identifier_key) {
                     Some(value) => Ok(value),
                     None => {
                         let interner = self.interner.borrow_mut();
@@ -110,7 +110,7 @@ impl Interpreter {
                             "tail" => Ok(Rc::new(IR::StdLib(BuiltIn::Tail))),
                             "push" => Ok(Rc::new(IR::StdLib(BuiltIn::Push))),
                             "puts" => Ok(Rc::new(IR::StdLib(BuiltIn::Puts))),
-                            _ => Err(EvalError::UnknownIdentifier(format!("{}", identifier))),
+                            _ => Err(EvalError::UnknownIdentifier(identifier.to_string())),
                         }
                     }
                 }
@@ -118,7 +118,7 @@ impl Interpreter {
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
             Expression::Boolean(value) => Ok(self.get_interned_bool(value)),
             Expression::Prefix(operator, right) => {
-                let right = self.eval_expression(&right)?;
+                let right = self.eval_expression(right)?;
                 self.eval_prefix_expression(operator, right)
             }
             Expression::Infix(operator, left, right) => {
@@ -283,7 +283,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_call_expression(&mut self, function: Rc<IR>, arguments: &Vec<Rc<IR>>) -> EvalResult {
+    fn eval_call_expression(&mut self, function: Rc<IR>, arguments: &[Rc<IR>]) -> EvalResult {
         match &*function {
             IR::Function(parameters, body, env) => {
                 self.expect_arguments_length(arguments, ValidateLength::Exact(parameters.len()))?;
@@ -291,7 +291,7 @@ impl Interpreter {
                 for (Identifier(identifier_key), evaluated_arg) in
                     parameters.iter().zip(arguments.iter())
                 {
-                    inner_env.set(identifier_key, Rc::clone(&evaluated_arg))
+                    inner_env.set(identifier_key, Rc::clone(evaluated_arg))
                 }
                 // Obtain a reference to the current env to avoid polluting it with function locals.
                 // Then, temporarily set the outer env to the function's inner env, so we can
@@ -309,7 +309,7 @@ impl Interpreter {
         }
     }
 
-    fn eval_hash_literal(&mut self, pairs: &Vec<(Expression, Expression)>) -> EvalResult {
+    fn eval_hash_literal(&mut self, pairs: &[(Expression, Expression)]) -> EvalResult {
         let mut map = FnvHashMap::with_capacity_and_hasher(pairs.len(), Default::default());
         for (k, v) in pairs {
             let k = self.eval_expression(k)?;
@@ -319,7 +319,7 @@ impl Interpreter {
         Ok(Rc::new(IR::Hash(map)))
     }
 
-    fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &Vec<Rc<IR>>) -> EvalResult {
+    fn eval_built_in(&mut self, built_in: &BuiltIn, arguments: &[Rc<IR>]) -> EvalResult {
         match built_in {
             BuiltIn::Len => {
                 self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
@@ -393,7 +393,7 @@ impl Interpreter {
                         ))),
                     }
                 } else {
-                    Err(EvalError::TypeError(format!("whatever")))
+                    unreachable!()
                 }
             }
             BuiltIn::Puts => {
@@ -405,7 +405,7 @@ impl Interpreter {
 
     fn expect_arguments_length<T>(
         &self,
-        arguments: &Vec<T>,
+        arguments: &[T],
         expected: ValidateLength,
     ) -> Result<(), EvalError> {
         let is_valid = match expected {
@@ -464,7 +464,7 @@ mod tests {
         let lexer = Lexer::new(input, Rc::clone(&interner));
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
-        let env = Rc::new(RefCell::new(Env::new()));
+        let env = Rc::new(RefCell::new(Env::default()));
         let mut interpreter = Interpreter::new(env, Rc::clone(&interner));
 
         for error in &program.errors {

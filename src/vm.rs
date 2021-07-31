@@ -203,7 +203,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let compiler = Compiler::new();
+            let compiler = Compiler::default();
             assert!(compiler.compile(&program).is_ok());
             compiler.to_bytecode()
         }

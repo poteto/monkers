@@ -29,11 +29,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn peek_char(&self) -> Option<char> {
-        if let Some(ch) = self.input.chars().nth(self.read_position) {
-            Some(ch)
-        } else {
-            None
-        }
+        self.input.chars().nth(self.read_position)
     }
 
     fn read_char(&mut self) {

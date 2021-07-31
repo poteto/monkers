@@ -12,8 +12,8 @@ use string_interner::StringInterner;
 
 use std::{cell::RefCell, rc::Rc, str::FromStr};
 
-const VERSION: &'static str = env!("CARGO_PKG_VERSION");
-const AUTHORS: &'static str = env!("CARGO_PKG_AUTHORS");
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 
 #[derive(Debug)]
 enum EvalStrategy {
@@ -33,22 +33,22 @@ impl FromStr for EvalStrategy {
     }
 }
 
-struct REPL<'strategy> {
+struct Repl<'strategy> {
     interner: Rc<RefCell<StringInterner>>,
     env: Rc<RefCell<Env>>,
     strategy: &'strategy EvalStrategy,
 }
 
-impl<'strategy> REPL<'strategy> {
+impl<'strategy> Repl<'strategy> {
     pub fn new(strategy: &'strategy EvalStrategy) -> Self {
         Self {
             interner: Rc::new(RefCell::new(StringInterner::default())),
-            env: Rc::new(RefCell::new(Env::new())),
+            env: Rc::new(RefCell::new(Env::default())),
             strategy,
         }
     }
 
-    fn parse<'input>(&self, input: &'input str) -> Program {
+    fn parse(&self, input: &str) -> Program {
         let lexer = Lexer::new(input, Rc::clone(&self.interner));
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
@@ -59,14 +59,14 @@ impl<'strategy> REPL<'strategy> {
     }
 
     fn compile(&self, program: &Program) -> Bytecode {
-        let compiler = Compiler::new();
-        if let Err(err) = compiler.compile(&program) {
+        let compiler = Compiler::default();
+        if let Err(err) = compiler.compile(program) {
             eprintln!("{:?}", err);
         }
         compiler.to_bytecode()
     }
 
-    pub fn eval<'input>(&self, input: &'input str) -> Option<IR> {
+    pub fn eval(&self, input: &str) -> Option<IR> {
         let program = self.parse(input);
         match self.strategy {
             EvalStrategy::Compiled => {
@@ -105,7 +105,7 @@ fn main() {
         .get_matches();
     let strategy = matches.value_of_t("strategy").unwrap_or_else(|e| e.exit());
     println!("Evaluating with strategy: {:?}", &strategy);
-    let repl = REPL::new(&strategy);
+    let repl = Repl::new(&strategy);
 
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
@@ -116,9 +116,8 @@ fn main() {
         match readline {
             Ok(input) => {
                 rl.add_history_entry(input.as_str());
-                match repl.eval(&input) {
-                    Some(ir) => println!("{}", ir),
-                    None => {}
+                if let Some(ir) = repl.eval(&input) {
+                    println!("{}", ir)
                 };
             }
             Err(ReadlineError::Interrupted) => {

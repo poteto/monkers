@@ -22,20 +22,21 @@ pub struct Compiler {
     constants: Rc<RefCell<Vec<IR>>>,
 }
 
-impl Compiler {
-    pub fn new() -> Self {
+impl Default for Compiler {
+    fn default() -> Self {
         Self {
             instructions: Default::default(),
             constants: Default::default(),
         }
     }
+}
 
+impl Compiler {
     pub fn compile(&self, program: &Program) -> Result<(), CompilerError> {
         program
             .statements
             .iter()
-            .map(|statement| self.compile_statement(statement))
-            .collect()
+            .try_for_each(|statement| self.compile_statement(statement))
     }
 
     fn compile_statement(&self, statement: &Statement) -> Result<(), CompilerError> {
@@ -177,7 +178,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let compiler = Compiler::new();
+            let compiler = Compiler::default();
             match compiler.compile(&program) {
                 Ok(_) => compiler.to_bytecode(),
                 Err(error) => panic!("{:#?}", error),

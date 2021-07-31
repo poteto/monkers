@@ -55,7 +55,7 @@ impl<'a> Parser<'a> {
         parser
     }
 
-    pub fn next_token(&mut self) -> () {
+    pub fn next_token(&mut self) {
         mem::swap(&mut self.curr_token, &mut self.peek_token);
         self.peek_token = self.lexer.next_token();
     }
@@ -192,7 +192,7 @@ impl<'a> Parser<'a> {
                 alternative,
             ))
         } else {
-            Err(self.parse_syntax_error(format!("Expected a condition expression",)))
+            Err(self.parse_syntax_error("Expected a condition expression".to_string()))
         }
     }
 
@@ -232,7 +232,7 @@ impl<'a> Parser<'a> {
                 Ok(Expression::Identifier(Identifier(*identifier_key)))
             }
             Token::Integer(i) => Ok(Expression::Integer(*i)),
-            Token::Boolean(value) => Ok(Expression::Boolean(*value == true)),
+            Token::Boolean(value) => Ok(Expression::Boolean(*value)),
             Token::Bang | Token::Minus => self.parse_prefix_expression(),
             Token::Lparen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
