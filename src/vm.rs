@@ -15,6 +15,7 @@ pub enum VMError {
     NotImplementedYet,
     StackOverflow,
     UnknownOperator(Opcode),
+    TypeError(IR),
 }
 
 pub struct VM {
@@ -70,6 +71,8 @@ impl VM {
             Opcode::OpEqual | Opcode::OpNotEqual | Opcode::OpGreaterThan => {
                 self.execute_comparison(opcode)
             }
+            Opcode::OpMinus => self.execute_minus_operator(),
+            Opcode::OpBang => self.execute_bang_operator(),
         }
     }
 
@@ -107,6 +110,21 @@ impl VM {
                 Opcode::OpNotEqual => self.push(self.get_interned_bool(&(right != left))),
                 opcode => Err(VMError::UnknownOperator(opcode)),
             },
+        }
+    }
+
+    fn execute_minus_operator(&mut self) -> Result<(), VMError> {
+        match self.pop() {
+            IR::Integer(value) => self.push(IR::Integer(-value)),
+            ir => Err(VMError::TypeError(ir)),
+        }
+    }
+
+    fn execute_bang_operator(&mut self) -> Result<(), VMError> {
+        match self.pop() {
+            IR::Boolean(true) => self.push(FALSE),
+            IR::Boolean(false) => self.push(TRUE),
+            _ => self.push(FALSE),
         }
     }
 
@@ -251,6 +269,10 @@ mod tests {
             VMTestCase::new("5 * 2 + 10", IR::Integer(20)),
             VMTestCase::new("5 + 2 * 10", IR::Integer(25)),
             VMTestCase::new("5 * (2 + 10)", IR::Integer(60)),
+            VMTestCase::new("-5", IR::Integer(-5)),
+            VMTestCase::new("-10", IR::Integer(-10)),
+            VMTestCase::new("-50 + 100 + -50", IR::Integer(0)),
+            VMTestCase::new("(5 + 10 * 2 + 15 / 3) * 2 + -10", IR::Integer(50)),
         ];
         run_vm_tests(tests);
     }
@@ -277,6 +299,12 @@ mod tests {
             VMTestCase::new("(1 < 2) == false", IR::Boolean(false)),
             VMTestCase::new("(1 > 2) == true", IR::Boolean(false)),
             VMTestCase::new("(1 > 2) == false", IR::Boolean(true)),
+            VMTestCase::new("!true", IR::Boolean(false)),
+            VMTestCase::new("!false", IR::Boolean(true)),
+            VMTestCase::new("!5", IR::Boolean(false)),
+            VMTestCase::new("!!true", IR::Boolean(true)),
+            VMTestCase::new("!!false", IR::Boolean(false)),
+            VMTestCase::new("!!5", IR::Boolean(true)),
         ];
         run_vm_tests(tests);
     }

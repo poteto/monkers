@@ -24,6 +24,8 @@ pub enum Opcode {
     OpEqual,
     OpNotEqual,
     OpGreaterThan,
+    OpMinus,
+    OpBang,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -43,6 +45,8 @@ impl TryFrom<Byte> for Opcode {
             8 => Ok(Self::OpEqual),
             9 => Ok(Self::OpNotEqual),
             10 => Ok(Self::OpGreaterThan),
+            11 => Ok(Self::OpMinus),
+            12 => Ok(Self::OpBang),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -62,6 +66,8 @@ pub enum OpcodeDefinition<'operand> {
     OpEqual,
     OpNotEqual,
     OpGreaterThan,
+    OpMinus,
+    OpBang,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -78,6 +84,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpEqual => Self::OpEqual,
             Opcode::OpNotEqual => Self::OpNotEqual,
             Opcode::OpGreaterThan => Self::OpGreaterThan,
+            Opcode::OpMinus => Self::OpMinus,
+            Opcode::OpBang => Self::OpBang,
         }
     }
 
@@ -97,7 +105,9 @@ impl<'operand> OpcodeDefinition<'operand> {
             | Self::OpFalse
             | Self::OpEqual
             | Self::OpNotEqual
-            | Self::OpGreaterThan => &[],
+            | Self::OpGreaterThan
+            | Self::OpMinus
+            | Self::OpBang => &[],
         }
     }
 }
@@ -116,6 +126,8 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             Self::OpEqual => write!(f, "OpEqual"),
             Self::OpNotEqual => write!(f, "OpNotEqual"),
             Self::OpGreaterThan => write!(f, "OpGreaterThan"),
+            Self::OpMinus => write!(f, "OpMinus"),
+            Self::OpBang => write!(f, "OpBang"),
         }
     }
 }
@@ -142,10 +154,7 @@ pub fn make(opcode: Opcode, operands: Option<&Vec<usize>>) -> Instructions {
     instruction
 }
 
-fn read_operands(
-    definition: &OpcodeDefinition,
-    instructions: &[Byte],
-) -> (Vec<usize>, usize) {
+fn read_operands(definition: &OpcodeDefinition, instructions: &[Byte]) -> (Vec<usize>, usize) {
     let mut operands = vec![0; definition.widths().len()];
     let mut offset = 0;
 
