@@ -73,6 +73,7 @@ impl VM {
             }
             Opcode::OpMinus => self.execute_minus_operator(),
             Opcode::OpBang => self.execute_bang_operator(),
+            _ => todo!(),
         }
     }
 
@@ -221,7 +222,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let compiler = Compiler::default();
+            let mut compiler = Compiler::default();
             assert!(compiler.compile(&program).is_ok());
             compiler.to_bytecode()
         }
