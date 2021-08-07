@@ -683,11 +683,7 @@ mod tests {
         for (input, expected) in tests {
             let result = test_eval(input);
             match result {
-                Ok(ir) => match &*ir {
-                    ir_object => {
-                        panic!("Didn't expect {}", ir_object);
-                    }
-                },
+                Ok(ir) => panic!("Didn't expect {}", *ir),
                 Err(err) => {
                     assert_eq!(expected, err.to_string());
                 }
@@ -973,11 +969,7 @@ mod tests {
         for (input, expected) in tests {
             let result = test_eval(input);
             match result {
-                Ok(ir) => match &*ir {
-                    ir => {
-                        assert_eq!(format!("{}", ir), expected)
-                    }
-                },
+                Ok(ir) => assert_eq!(format!("{}", *ir), expected),
                 Err(err) => {
                     panic!("{}", err);
                 }
