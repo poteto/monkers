@@ -1,8 +1,8 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, convert::TryFrom, rc::Rc};
 
 use crate::{
     ast::{Expression, Program, Statement},
-    code::{self, Instructions, Opcode},
+    code::{self, Byte, Instructions, Opcode},
     ir::IR,
     token::Token,
 };
@@ -17,9 +17,23 @@ pub struct Bytecode {
     pub constants: Vec<IR>,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct EmittedInstruction {
+    pub opcode: Opcode,
+    pub position: usize,
+}
+
+impl EmittedInstruction {
+    fn new(opcode: Opcode, position: usize) -> Self {
+        Self { opcode, position }
+    }
+}
+
 pub struct Compiler {
     instructions: Rc<RefCell<Instructions>>,
     constants: Rc<RefCell<Vec<IR>>>,
+    last_instr: Option<EmittedInstruction>,
+    prev_instr: Option<EmittedInstruction>,
 }
 
 impl Default for Compiler {
@@ -27,25 +41,30 @@ impl Default for Compiler {
         Self {
             instructions: Default::default(),
             constants: Default::default(),
+            last_instr: Default::default(),
+            prev_instr: Default::default(),
         }
     }
 }
 
 impl Compiler {
-    pub fn compile(&self, program: &Program) -> Result<(), CompilerError> {
+    pub fn compile(&mut self, program: &Program) -> Result<(), CompilerError> {
         program
             .statements
             .iter()
             .try_for_each(|statement| self.compile_statement(statement))
     }
 
-    fn compile_statement(&self, statement: &Statement) -> Result<(), CompilerError> {
+    fn compile_statement(&mut self, statement: &Statement) -> Result<(), CompilerError> {
         match statement {
             Statement::Expression(expression) => {
                 self.compile_expression(expression)?;
                 self.emit(Opcode::OpPop, None);
                 Ok(())
             }
+            Statement::Block(statements) => statements
+                .iter()
+                .try_for_each(|statement| self.compile_statement(statement)),
             statement => Err(CompilerError::NotImplementedYet(format!(
                 "{:#?}",
                 statement
@@ -53,7 +72,7 @@ impl Compiler {
         }
     }
 
-    fn compile_expression(&self, expression: &Expression) -> Result<(), CompilerError> {
+    fn compile_expression(&mut self, expression: &Expression) -> Result<(), CompilerError> {
         match expression {
             Expression::Infix(operator, left, right) => {
                 match operator {
@@ -101,7 +120,7 @@ impl Compiler {
             Expression::Integer(value) => {
                 self.emit(
                     Opcode::OpConstant,
-                    Some(&vec![self.add_constant(IR::Integer(*value))]),
+                    Some(&[self.add_constant(IR::Integer(*value))]),
                 );
                 Ok(())
             }
@@ -112,6 +131,32 @@ impl Compiler {
                 };
                 Ok(())
             }
+            Expression::If(condition, consequence, alternative) => {
+                self.compile_expression(condition)?;
+                let jump_not_truthy_pos = self.emit(Opcode::OpJumpNotTruthy, Some(&[9999]));
+                if let Some(consequence) = consequence {
+                    self.compile_statement(&*consequence)?;
+                }
+                if self.last_instr_is_pop() {
+                    self.remove_last_pop();
+                }
+                self.change_operand(jump_not_truthy_pos, self.instructions_len());
+
+                // Handle alternative
+                if let Some(alternative) = alternative {
+                    let jump_pos = self.emit(Opcode::OpJump, Some(&[9999]));
+                    self.change_operand(jump_not_truthy_pos, self.instructions_len());
+                    self.compile_statement(&*alternative)?;
+                    if self.last_instr_is_pop() {
+                        self.remove_last_pop();
+                    }
+                    self.change_operand(jump_pos, self.instructions_len());
+                } else {
+                    self.change_operand(jump_not_truthy_pos, self.instructions_len());
+                }
+
+                Ok(())
+            }
             expression => Err(CompilerError::NotImplementedYet(format!(
                 "{:#?}",
                 expression
@@ -119,9 +164,34 @@ impl Compiler {
         }
     }
 
-    fn emit(&self, opcode: Opcode, operands: Option<&Vec<usize>>) -> usize {
+    fn emit(&mut self, opcode: Opcode, operands: Option<&[usize]>) -> usize {
         let mut instruction = code::make(opcode, operands);
-        self.add_instructions(&mut instruction)
+        let position = self.add_instruction(&mut instruction);
+        self.set_last_instr(opcode, position);
+        position
+    }
+
+    fn set_last_instr(&mut self, opcode: Opcode, position: usize) {
+        let prev = self.last_instr;
+        let last = EmittedInstruction::new(opcode, position);
+        self.prev_instr = prev;
+        self.last_instr = Some(last);
+    }
+
+    fn last_instr_is_pop(&self) -> bool {
+        if let Some(EmittedInstruction { opcode, .. }) = self.last_instr {
+            opcode == Opcode::OpPop
+        } else {
+            false
+        }
+    }
+
+    fn remove_last_pop(&mut self) {
+        if let Some(EmittedInstruction { position, .. }) = self.last_instr {
+            let mut instructions = self.instructions.borrow_mut();
+            instructions.remove(position);
+            self.last_instr = self.prev_instr
+        }
     }
 
     fn add_constant(&self, ir: IR) -> usize {
@@ -130,10 +200,30 @@ impl Compiler {
         constants.len() - 1
     }
 
-    fn add_instructions(&self, instructions: &mut Instructions) -> usize {
+    fn add_instruction(&self, instruction: &mut Instructions) -> usize {
+        let mut instructions = self.instructions.borrow_mut();
         let offset = instructions.len();
-        self.instructions.borrow_mut().append(instructions);
+        instructions.append(instruction);
         offset
+    }
+
+    fn replace_instruction(&self, position: usize, new_instr: &[Byte]) {
+        let mut instructions = self.instructions.borrow_mut();
+        new_instr
+            .iter()
+            .enumerate()
+            .for_each(|(i, instr)| instructions[position + i] = *instr)
+    }
+
+    fn instructions_len(&self) -> usize {
+        self.instructions.borrow().len()
+    }
+
+    fn change_operand(&self, op_pos: usize, operand: usize) {
+        let instructions = self.instructions.borrow_mut();
+        let op = Opcode::try_from(instructions[op_pos]).unwrap();
+        drop(instructions);
+        self.replace_instruction(op_pos, &code::make(op, Some(&[operand])));
     }
 
     pub fn to_bytecode(&self) -> Bytecode {
@@ -148,7 +238,7 @@ impl Compiler {
 mod tests {
     use crate::{
         ast::Program,
-        code::{make, Byte, Opcode},
+        code::{disasemble, make, Byte, Opcode},
         lexer::Lexer,
         parser::Parser,
     };
@@ -189,7 +279,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let compiler = Compiler::default();
+            let mut compiler = Compiler::default();
             match compiler.compile(&program) {
                 Ok(_) => compiler.to_bytecode(),
                 Err(error) => panic!("{:#?}", error),
@@ -199,18 +289,22 @@ mod tests {
 
     fn test_instructions(expected: Vec<Vec<Byte>>, actual: Instructions) {
         let concatted = expected.into_iter().flatten().collect::<Vec<_>>();
+        let disasembled_expected = disasemble(&concatted).unwrap();
+        let disasembled_actual = disasemble(&actual).unwrap();
         assert_eq!(
             actual.len(),
             concatted.len(),
-            "Wrong instructions length. Expected: {:?}, got: {:?}",
+            "Wrong instructions length.\nExpected: {:?}\n{}\n\nActual: {:?}\n{}",
             concatted,
-            actual
+            disasembled_expected,
+            actual,
+            disasembled_actual
         );
         for (index, instruction) in concatted.iter().enumerate() {
             assert_eq!(
                 actual[index], *instruction,
-                "Wrong instruction at {}. Expected: {:?}, got: {:?}",
-                index, concatted, actual
+                "Wrong instruction at {}.\nExpected: \n{}\n\nActual:\n{}",
+                index, disasembled_expected, disasembled_actual
             );
         }
     }
@@ -248,8 +342,8 @@ mod tests {
                 "1 + 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpAdd, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -258,9 +352,9 @@ mod tests {
                 "1; 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&[0])),
                     make(Opcode::OpPop, None),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpPop, None),
                 ],
             ),
@@ -268,8 +362,8 @@ mod tests {
                 "1 - 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpSub, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -278,8 +372,8 @@ mod tests {
                 "1 * 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpMul, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -288,8 +382,8 @@ mod tests {
                 "1 / 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpDiv, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -298,7 +392,7 @@ mod tests {
                 "-1",
                 vec![IR::Integer(1)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
+                    make(Opcode::OpConstant, Some(&[0])),
                     make(Opcode::OpMinus, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -324,8 +418,8 @@ mod tests {
                 "1 > 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpGreaterThan, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -334,8 +428,8 @@ mod tests {
                 "1 < 2",
                 vec![IR::Integer(2), IR::Integer(1)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpGreaterThan, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -344,8 +438,8 @@ mod tests {
                 "1 == 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpEqual, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -354,8 +448,8 @@ mod tests {
                 "1 != 2",
                 vec![IR::Integer(1), IR::Integer(2)],
                 vec![
-                    make(Opcode::OpConstant, Some(&vec![0])),
-                    make(Opcode::OpConstant, Some(&vec![1])),
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
                     make(Opcode::OpNotEqual, None),
                     make(Opcode::OpPop, None),
                 ],
@@ -387,6 +481,39 @@ mod tests {
                     make(Opcode::OpTrue, None),
                     make(Opcode::OpBang, None),
                     make(Opcode::OpPop, None),
+                ],
+            ),
+        ];
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn it_evaluates_conditionals() {
+        let tests = vec![
+            CompilerTestCase::new(
+                "if (true) { 10 }; 3333;",
+                vec![IR::Integer(10), IR::Integer(3333)],
+                vec![
+                    make(Opcode::OpTrue, None),                // 0000
+                    make(Opcode::OpJumpNotTruthy, Some(&[7])), // 0001
+                    make(Opcode::OpConstant, Some(&[0])),      // 0004
+                    make(Opcode::OpPop, None),                 // 0007
+                    make(Opcode::OpConstant, Some(&[1])),      // 0008
+                    make(Opcode::OpPop, None),                 // 0011
+                ],
+            ),
+            CompilerTestCase::new(
+                "if (true) { 10 } else { 20 }; 3333;",
+                vec![IR::Integer(10), IR::Integer(20), IR::Integer(3333)],
+                vec![
+                    make(Opcode::OpTrue, None),                 // 0000
+                    make(Opcode::OpJumpNotTruthy, Some(&[10])), // 0001
+                    make(Opcode::OpConstant, Some(&[0])),       // 0004
+                    make(Opcode::OpJump, Some(&[13])),          // 0007
+                    make(Opcode::OpConstant, Some(&[1])),       // 0010
+                    make(Opcode::OpPop, None),                  // 0013
+                    make(Opcode::OpConstant, Some(&[2])),       // 0014
+                    make(Opcode::OpPop, None),                  // 0017
                 ],
             ),
         ];

@@ -4,13 +4,14 @@ use std::{borrow::Borrow, convert::TryFrom, fmt};
 pub type Byte = u8;
 pub type Instructions = Vec<Byte>;
 
+#[derive(Debug)]
 pub enum CodeError {
     NotImplementedYet,
     UndefinedOpcode(Byte),
 }
 
 // Opcodes are represented by a single byte.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum Opcode {
     OpConstant = 0,
@@ -26,9 +27,12 @@ pub enum Opcode {
     OpGreaterThan,
     OpMinus,
     OpBang,
+    OpJumpNotTruthy,
+    OpJump,
 }
 
 // TODO: Maybe turn this into a macro?
+// See: https://github.com/illicitonion/num_enum
 impl TryFrom<Byte> for Opcode {
     type Error = CodeError;
 
@@ -47,6 +51,8 @@ impl TryFrom<Byte> for Opcode {
             10 => Ok(Self::OpGreaterThan),
             11 => Ok(Self::OpMinus),
             12 => Ok(Self::OpBang),
+            13 => Ok(Self::OpJumpNotTruthy),
+            14 => Ok(Self::OpJump),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -68,6 +74,8 @@ pub enum OpcodeDefinition<'operand> {
     OpGreaterThan,
     OpMinus,
     OpBang,
+    OpJumpNotTruthy(&'operand [usize]),
+    OpJump(&'operand [usize]),
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -86,6 +94,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpGreaterThan => Self::OpGreaterThan,
             Opcode::OpMinus => Self::OpMinus,
             Opcode::OpBang => Self::OpBang,
+            Opcode::OpJumpNotTruthy => Self::OpJumpNotTruthy(&[2]),
+            Opcode::OpJump => Self::OpJump(&[2]),
         }
     }
 
@@ -96,6 +106,8 @@ impl<'operand> OpcodeDefinition<'operand> {
     pub fn widths(&self) -> &[usize] {
         match self {
             Self::OpConstant(widths) => widths,
+            Self::OpJumpNotTruthy(widths) => widths,
+            Self::OpJump(widths) => widths,
             Self::OpAdd
             | Self::OpPop
             | Self::OpSub
@@ -128,11 +140,13 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             Self::OpGreaterThan => write!(f, "OpGreaterThan"),
             Self::OpMinus => write!(f, "OpMinus"),
             Self::OpBang => write!(f, "OpBang"),
+            Self::OpJumpNotTruthy(_) => write!(f, "OpJumpNotTruthy"),
+            Self::OpJump(_) => write!(f, "OpJump"),
         }
     }
 }
 
-pub fn make(opcode: Opcode, operands: Option<&Vec<usize>>) -> Instructions {
+pub fn make(opcode: Opcode, operands: Option<&[usize]>) -> Instructions {
     let definition = OpcodeDefinition::lookup(&opcode);
     let instruction_len = definition.widths().iter().fold(1, |len, w| len + w);
 
@@ -245,8 +259,8 @@ mod tests {
 "#;
         let instructions = vec![
             make(Opcode::OpAdd, None),
-            make(Opcode::OpConstant, Some(&vec![2])),
-            make(Opcode::OpConstant, Some(&vec![65535])),
+            make(Opcode::OpConstant, Some(&[2])),
+            make(Opcode::OpConstant, Some(&[65535])),
         ]
         .into_iter()
         .flatten()
@@ -261,10 +275,10 @@ mod tests {
 
     #[test]
     fn read_operands_works() {
-        let tests = vec![(Opcode::OpConstant, vec![65535], 2)];
+        let tests = vec![(Opcode::OpConstant, &[65535], 2)];
 
         for (opcode, operands, expected_offset) in tests {
-            let instruction = make(opcode, Some(&operands));
+            let instruction = make(opcode, Some(operands));
             let definition = OpcodeDefinition::lookup(&opcode);
             let (operand, offset) = read_operands(&definition, &instruction[1..].to_vec());
             assert_eq!(offset, expected_offset);
