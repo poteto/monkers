@@ -73,7 +73,20 @@ impl VM {
             }
             Opcode::OpMinus => self.execute_minus_operator(),
             Opcode::OpBang => self.execute_bang_operator(),
-            _ => todo!(),
+            Opcode::OpJump => {
+                let pos = code::read_u16(&self.bytecode.instructions[(*instruction_ptr + 1)..]);
+                *instruction_ptr = (pos - 1).into();
+                Ok(())
+            }
+            Opcode::OpJumpNotTruthy => {
+                let pos = code::read_u16(&self.bytecode.instructions[(*instruction_ptr + 1)..]);
+                *instruction_ptr += 2;
+                let condition = self.pop();
+                if !self.is_truthy(condition) {
+                    *instruction_ptr = (pos - 1).into();
+                }
+                Ok(())
+            }
         }
     }
 
@@ -181,6 +194,13 @@ impl VM {
         match native_value {
             true => TRUE,
             false => FALSE,
+        }
+    }
+
+    fn is_truthy(&self, ir: IR) -> bool {
+        match ir {
+            IR::Boolean(value) => value,
+            _ => true,
         }
     }
 }
@@ -306,6 +326,20 @@ mod tests {
             VMTestCase::new("!!true", IR::Boolean(true)),
             VMTestCase::new("!!false", IR::Boolean(false)),
             VMTestCase::new("!!5", IR::Boolean(true)),
+        ];
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn it_evaluates_conditionals() {
+        let tests = vec![
+            VMTestCase::new("if (true) { 10 }", IR::Integer(10)),
+            VMTestCase::new("if (true) { 10 } else { 20 }", IR::Integer(10)),
+            VMTestCase::new("if (false) { 10 } else { 20 }", IR::Integer(20)),
+            VMTestCase::new("if (1) { 10 }", IR::Integer(10)),
+            VMTestCase::new("if (1 < 2) { 10 }", IR::Integer(10)),
+            VMTestCase::new("if (1 < 2) { 10 } else { 20 }", IR::Integer(10)),
+            VMTestCase::new("if (1 > 2) { 10 } else { 20 }", IR::Integer(20)),
         ];
         run_vm_tests(tests);
     }
