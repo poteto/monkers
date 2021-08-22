@@ -29,6 +29,7 @@ pub enum Opcode {
     OpBang,
     OpJumpNotTruthy,
     OpJump,
+    OpNull,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -53,6 +54,7 @@ impl TryFrom<Byte> for Opcode {
             12 => Ok(Self::OpBang),
             13 => Ok(Self::OpJumpNotTruthy),
             14 => Ok(Self::OpJump),
+            15 => Ok(Self::OpNull),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -76,6 +78,7 @@ pub enum OpcodeDefinition<'operand> {
     OpBang,
     OpJumpNotTruthy(&'operand [usize]),
     OpJump(&'operand [usize]),
+    OpNull,
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -96,6 +99,7 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpBang => Self::OpBang,
             Opcode::OpJumpNotTruthy => Self::OpJumpNotTruthy(&[2]),
             Opcode::OpJump => Self::OpJump(&[2]),
+            Opcode::OpNull => Self::OpNull,
         }
     }
 
@@ -119,7 +123,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             | Self::OpNotEqual
             | Self::OpGreaterThan
             | Self::OpMinus
-            | Self::OpBang => &[],
+            | Self::OpBang
+            | Self::OpNull => &[],
         }
     }
 }
@@ -142,6 +147,7 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             Self::OpBang => write!(f, "OpBang"),
             Self::OpJumpNotTruthy(_) => write!(f, "OpJumpNotTruthy"),
             Self::OpJump(_) => write!(f, "OpJump"),
+            Self::OpNull => write!(f, "OpNull"),
         }
     }
 }

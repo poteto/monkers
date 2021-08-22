@@ -140,21 +140,18 @@ impl Compiler {
                 if self.last_instr_is_pop() {
                     self.remove_last_pop();
                 }
+                let jump_pos = self.emit(Opcode::OpJump, Some(&[9999]));
                 self.change_operand(jump_not_truthy_pos, self.instructions_len());
 
-                // Handle alternative
                 if let Some(alternative) = alternative {
-                    let jump_pos = self.emit(Opcode::OpJump, Some(&[9999]));
-                    self.change_operand(jump_not_truthy_pos, self.instructions_len());
                     self.compile_statement(&*alternative)?;
                     if self.last_instr_is_pop() {
                         self.remove_last_pop();
                     }
-                    self.change_operand(jump_pos, self.instructions_len());
                 } else {
-                    self.change_operand(jump_not_truthy_pos, self.instructions_len());
+                    self.emit(Opcode::OpNull, None);
                 }
-
+                self.change_operand(jump_pos, self.instructions_len());
                 Ok(())
             }
             expression => Err(CompilerError::NotImplementedYet(format!(
@@ -494,12 +491,14 @@ mod tests {
                 "if (true) { 10 }; 3333;",
                 vec![IR::Integer(10), IR::Integer(3333)],
                 vec![
-                    make(Opcode::OpTrue, None),                // 0000
-                    make(Opcode::OpJumpNotTruthy, Some(&[7])), // 0001
-                    make(Opcode::OpConstant, Some(&[0])),      // 0004
-                    make(Opcode::OpPop, None),                 // 0007
-                    make(Opcode::OpConstant, Some(&[1])),      // 0008
-                    make(Opcode::OpPop, None),                 // 0011
+                    make(Opcode::OpTrue, None),                 // 0000
+                    make(Opcode::OpJumpNotTruthy, Some(&[10])), // 0001
+                    make(Opcode::OpConstant, Some(&[0])),       // 0004
+                    make(Opcode::OpJump, Some(&[11])),          // 0007
+                    make(Opcode::OpNull, None),                 // 0010
+                    make(Opcode::OpPop, None),                  // 0011
+                    make(Opcode::OpConstant, Some(&[1])),       // 0012
+                    make(Opcode::OpPop, None),                  // 0015
                 ],
             ),
             CompilerTestCase::new(

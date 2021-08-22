@@ -9,6 +9,7 @@ use crate::{
 const STACK_SIZE: usize = 2048;
 const TRUE: IR = IR::Boolean(true);
 const FALSE: IR = IR::Boolean(false);
+const NULL: IR = IR::Null;
 
 #[derive(Debug)]
 pub enum VMError {
@@ -87,6 +88,7 @@ impl VM {
                 }
                 Ok(())
             }
+            Opcode::OpNull => self.push(NULL),
         }
     }
 
@@ -138,6 +140,7 @@ impl VM {
         match self.pop() {
             IR::Boolean(true) => self.push(FALSE),
             IR::Boolean(false) => self.push(TRUE),
+            IR::Null => self.push(TRUE),
             _ => self.push(FALSE),
         }
     }
@@ -200,6 +203,7 @@ impl VM {
     fn is_truthy(&self, ir: IR) -> bool {
         match ir {
             IR::Boolean(value) => value,
+            IR::Null => false,
             _ => true,
         }
     }
@@ -251,10 +255,13 @@ mod tests {
     fn test_expected_object(expected: &IR, actual: IR) {
         match (expected, actual) {
             (IR::Integer(expected_value), IR::Integer(actual_value)) => {
-                assert_eq!(expected_value, &actual_value)
+                assert_eq!(expected_value, &actual_value);
             }
             (IR::Boolean(expected_value), IR::Boolean(actual_value)) => {
-                assert_eq!(expected_value, &actual_value)
+                assert_eq!(expected_value, &actual_value);
+            }
+            (IR::Null, actual) => {
+                assert_eq!(IR::Null, actual);
             }
             (expected_ir, actual_ir) => todo!(
                 "Unexpected comparison between {} and {}",
@@ -326,6 +333,7 @@ mod tests {
             VMTestCase::new("!!true", IR::Boolean(true)),
             VMTestCase::new("!!false", IR::Boolean(false)),
             VMTestCase::new("!!5", IR::Boolean(true)),
+            VMTestCase::new("!(if (false) { 5; })", IR::Boolean(true)),
         ];
         run_vm_tests(tests);
     }
@@ -340,6 +348,12 @@ mod tests {
             VMTestCase::new("if (1 < 2) { 10 }", IR::Integer(10)),
             VMTestCase::new("if (1 < 2) { 10 } else { 20 }", IR::Integer(10)),
             VMTestCase::new("if (1 > 2) { 10 } else { 20 }", IR::Integer(20)),
+            VMTestCase::new("if (1 > 2) { 10 }", IR::Null),
+            VMTestCase::new("if (false) { 10 }", IR::Null),
+            VMTestCase::new(
+                "if ((if (false) { 10 })) { 10 } else { 20 }",
+                IR::Integer(20),
+            ),
         ];
         run_vm_tests(tests);
     }
