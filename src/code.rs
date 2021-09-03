@@ -30,6 +30,8 @@ pub enum Opcode {
     OpJumpNotTruthy,
     OpJump,
     OpNull,
+    OpGetGlobal,
+    OpSetGlobal,
 }
 
 // TODO: Maybe turn this into a macro?
@@ -55,6 +57,8 @@ impl TryFrom<Byte> for Opcode {
             13 => Ok(Self::OpJumpNotTruthy),
             14 => Ok(Self::OpJump),
             15 => Ok(Self::OpNull),
+            16 => Ok(Self::OpGetGlobal),
+            17 => Ok(Self::OpSetGlobal),
             _ => Err(CodeError::UndefinedOpcode(op)),
         }
     }
@@ -79,6 +83,8 @@ pub enum OpcodeDefinition<'operand> {
     OpJumpNotTruthy(&'operand [usize]),
     OpJump(&'operand [usize]),
     OpNull,
+    OpGetGlobal(&'operand [usize]),
+    OpSetGlobal(&'operand [usize]),
 }
 
 impl<'operand> OpcodeDefinition<'operand> {
@@ -100,6 +106,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             Opcode::OpJumpNotTruthy => Self::OpJumpNotTruthy(&[2]),
             Opcode::OpJump => Self::OpJump(&[2]),
             Opcode::OpNull => Self::OpNull,
+            Opcode::OpGetGlobal => Self::OpGetGlobal(&[2]),
+            Opcode::OpSetGlobal => Self::OpSetGlobal(&[2]),
         }
     }
 
@@ -112,6 +120,8 @@ impl<'operand> OpcodeDefinition<'operand> {
             Self::OpConstant(widths) => widths,
             Self::OpJumpNotTruthy(widths) => widths,
             Self::OpJump(widths) => widths,
+            Self::OpGetGlobal(widths) => widths,
+            Self::OpSetGlobal(widths) => widths,
             Self::OpAdd
             | Self::OpPop
             | Self::OpSub
@@ -148,6 +158,8 @@ impl<'opcode> fmt::Display for OpcodeDefinition<'opcode> {
             Self::OpJumpNotTruthy(_) => write!(f, "OpJumpNotTruthy"),
             Self::OpJump(_) => write!(f, "OpJump"),
             Self::OpNull => write!(f, "OpNull"),
+            Self::OpGetGlobal(_) => write!(f, "OpGetGlobal"),
+            Self::OpSetGlobal(_) => write!(f, "OpSetGlobal"),
         }
     }
 }
