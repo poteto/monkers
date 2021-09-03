@@ -59,7 +59,7 @@ impl<'strategy> Repl<'strategy> {
     }
 
     fn compile(&self, program: &Program) -> Bytecode {
-        let mut compiler = Compiler::default();
+        let mut compiler = Compiler::new(Rc::clone(&self.interner));
         if let Err(err) = compiler.compile(program) {
             eprintln!("{:?}", err);
         }

@@ -89,6 +89,7 @@ impl VM {
                 Ok(())
             }
             Opcode::OpNull => self.push(NULL),
+            _ => todo!(),
         }
     }
 
@@ -226,16 +227,21 @@ mod tests {
     struct VMTestCase<'input> {
         input: &'input str,
         expected: IR,
+        interner: Option<Rc<RefCell<StringInterner>>>,
     }
 
     impl<'input> VMTestCase<'input> {
         fn new(input: &'input str, expected: IR) -> Self {
-            Self { input, expected }
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
+            Self {
+                input,
+                expected,
+                interner: Some(interner),
+            }
         }
 
         fn parse(&self) -> Program {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(self.input, Rc::clone(&interner));
+            let lexer = Lexer::new(self.input, Rc::clone(self.interner.as_ref().unwrap()));
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
             for error in &program.errors {
@@ -246,7 +252,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let mut compiler = Compiler::default();
+            let mut compiler = Compiler::new(Rc::clone(self.interner.as_ref().unwrap()));
             assert!(compiler.compile(&program).is_ok());
             compiler.to_bytecode()
         }

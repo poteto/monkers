@@ -1,15 +1,23 @@
+mod symbol_table;
+
 use std::{cell::RefCell, convert::TryFrom, rc::Rc};
 
+use string_interner::StringInterner;
+
 use crate::{
-    ast::{Expression, Program, Statement},
+    ast::{Expression, Identifier, Program, Statement},
     code::{self, Byte, Instructions, Opcode},
+    compiler::symbol_table::Symbol,
     ir::IR,
     token::Token,
 };
 
+use self::symbol_table::SymbolTable;
+
 #[derive(Debug)]
 pub enum CompilerError {
     NotImplementedYet(String),
+    UndefinedVariable(String),
 }
 
 pub struct Bytecode {
@@ -34,20 +42,22 @@ pub struct Compiler {
     constants: Rc<RefCell<Vec<IR>>>,
     last_instr: Option<EmittedInstruction>,
     prev_instr: Option<EmittedInstruction>,
+    interner: Rc<RefCell<StringInterner>>,
+    symbol_table: SymbolTable,
 }
 
-impl Default for Compiler {
-    fn default() -> Self {
+impl Compiler {
+    pub fn new(interner: Rc<RefCell<StringInterner>>) -> Self {
         Self {
             instructions: Default::default(),
             constants: Default::default(),
             last_instr: Default::default(),
             prev_instr: Default::default(),
+            interner: Rc::clone(&interner),
+            symbol_table: SymbolTable::default(),
         }
     }
-}
 
-impl Compiler {
     pub fn compile(&mut self, program: &Program) -> Result<(), CompilerError> {
         program
             .statements
@@ -65,6 +75,12 @@ impl Compiler {
             Statement::Block(statements) => statements
                 .iter()
                 .try_for_each(|statement| self.compile_statement(statement)),
+            Statement::Let(Identifier(name), expression) => {
+                self.compile_expression(expression)?;
+                let symbol = self.symbol_table.define(*name);
+                self.emit(Opcode::OpSetGlobal, Some(&[symbol.index]));
+                Ok(())
+            }
             statement => Err(CompilerError::NotImplementedYet(format!(
                 "{:#?}",
                 statement
@@ -152,6 +168,20 @@ impl Compiler {
                     self.emit(Opcode::OpNull, None);
                 }
                 self.change_operand(jump_pos, self.instructions_len());
+                Ok(())
+            }
+            Expression::Identifier(Identifier(name)) => {
+                match self.symbol_table.resolve(*name) {
+                    Some(Symbol { index, .. }) => self.emit(Opcode::OpGetGlobal, Some(&[index])),
+                    None => match self.interner.borrow().resolve(*name) {
+                        Some(name) => {
+                            return Err(CompilerError::UndefinedVariable(name.to_string()))
+                        }
+                        None => {
+                            return Err(CompilerError::UndefinedVariable("unknown".to_string()))
+                        }
+                    },
+                };
                 Ok(())
             }
             expression => Err(CompilerError::NotImplementedYet(format!(
@@ -248,6 +278,7 @@ mod tests {
         input: &'input str,
         expected_constants: Vec<IR>,
         expected_instructions: Vec<Vec<Byte>>,
+        interner: Option<Rc<RefCell<StringInterner>>>,
     }
 
     impl<'input> CompilerTestCase<'input> {
@@ -256,16 +287,17 @@ mod tests {
             expected_constants: Vec<IR>,
             expected_instructions: Vec<Vec<Byte>>,
         ) -> Self {
+            let interner = Rc::new(RefCell::new(StringInterner::default()));
             Self {
                 input,
                 expected_constants,
                 expected_instructions,
+                interner: Some(interner),
             }
         }
 
         fn parse(&self) -> Program {
-            let interner = Rc::new(RefCell::new(StringInterner::default()));
-            let lexer = Lexer::new(self.input, Rc::clone(&interner));
+            let lexer = Lexer::new(self.input, Rc::clone(self.interner.as_ref().unwrap()));
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
             for error in &program.errors {
@@ -276,7 +308,7 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let mut compiler = Compiler::default();
+            let mut compiler = Compiler::new(Rc::clone(self.interner.as_ref().unwrap()));
             match compiler.compile(&program) {
                 Ok(_) => compiler.to_bytecode(),
                 Err(error) => panic!("{:#?}", error),
@@ -485,7 +517,7 @@ mod tests {
     }
 
     #[test]
-    fn it_evaluates_conditionals() {
+    fn it_compiles_conditionals() {
         let tests = vec![
             CompilerTestCase::new(
                 "if (true) { 10 }; 3333;",
@@ -513,6 +545,45 @@ mod tests {
                     make(Opcode::OpPop, None),                  // 0013
                     make(Opcode::OpConstant, Some(&[2])),       // 0014
                     make(Opcode::OpPop, None),                  // 0017
+                ],
+            ),
+        ];
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn it_compiles_let_statements() {
+        let tests = vec![
+            CompilerTestCase::new(
+                "let one = 1; let two = 2;",
+                vec![IR::Integer(1), IR::Integer(2)],
+                vec![
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpSetGlobal, Some(&[0])),
+                    make(Opcode::OpConstant, Some(&[1])),
+                    make(Opcode::OpSetGlobal, Some(&[1])),
+                ],
+            ),
+            CompilerTestCase::new(
+                "let one = 1; one;",
+                vec![IR::Integer(1)],
+                vec![
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpSetGlobal, Some(&[0])),
+                    make(Opcode::OpGetGlobal, Some(&[0])),
+                    make(Opcode::OpPop, None),
+                ],
+            ),
+            CompilerTestCase::new(
+                "let one = 1; let two = one; two;",
+                vec![IR::Integer(1)],
+                vec![
+                    make(Opcode::OpConstant, Some(&[0])),
+                    make(Opcode::OpSetGlobal, Some(&[0])),
+                    make(Opcode::OpGetGlobal, Some(&[0])),
+                    make(Opcode::OpSetGlobal, Some(&[1])),
+                    make(Opcode::OpGetGlobal, Some(&[1])),
+                    make(Opcode::OpPop, None),
                 ],
             ),
         ];
