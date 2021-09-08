@@ -1,6 +1,6 @@
 mod symbol_table;
 
-use std::{cell::RefCell, convert::TryFrom, rc::Rc};
+use std::{fmt, cell::RefCell, convert::TryFrom, rc::Rc};
 
 use string_interner::StringInterner;
 
@@ -23,6 +23,16 @@ pub enum CompilerError {
 pub struct Bytecode {
     pub instructions: Instructions,
     pub constants: Vec<IR>,
+}
+
+impl fmt::Debug for Bytecode {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Ok(disassembled) = code::disasemble(&self.instructions) {
+            write!(f, "{}", disassembled)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

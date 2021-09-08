@@ -71,6 +71,7 @@ impl<'strategy> Repl<'strategy> {
         match self.strategy {
             EvalStrategy::Compiled => {
                 let bytecode = self.compile(&program);
+                dbg!(&bytecode);
                 let mut vm = VM::new(bytecode);
                 if let Err(err) = vm.run() {
                     eprintln!("{:?}", err);
