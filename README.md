@@ -16,7 +16,7 @@ $ target/release/monkers --help
 $ target/release/monkers
 
 # Run the REPL with the tree-walking interpreter
-$ target/release/monkers interpreted
+$ target/release/monkers -s interpreted
 ```
 
 ## Developing
@@ -40,6 +40,13 @@ true
 99
 🐒 >> d * c * a;
 245025
+```
+
+Options can also be enabled:
+
+```
+$ cargo run -- -d               # debug mode
+$ cargo run -- -s interpreted   # eval with interpreter
 ```
 
 Command history is saved in `history.txt`.
