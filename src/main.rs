@@ -33,18 +33,23 @@ impl FromStr for EvalStrategy {
     }
 }
 
+struct ReplOptions<'strategy> {
+    strategy: &'strategy EvalStrategy,
+    debug: bool,
+}
+
 struct Repl<'strategy> {
     interner: Rc<RefCell<StringInterner>>,
     env: Rc<RefCell<Env>>,
-    strategy: &'strategy EvalStrategy,
+    options: ReplOptions<'strategy>,
 }
 
 impl<'strategy> Repl<'strategy> {
-    pub fn new(strategy: &'strategy EvalStrategy) -> Self {
+    pub fn new(options: ReplOptions<'strategy>) -> Self {
         Self {
             interner: Rc::new(RefCell::new(StringInterner::default())),
             env: Rc::new(RefCell::new(Env::default())),
-            strategy,
+            options,
         }
     }
 
@@ -68,9 +73,12 @@ impl<'strategy> Repl<'strategy> {
 
     pub fn eval(&self, input: &str) -> Option<IR> {
         let program = self.parse(input);
-        match self.strategy {
+        match self.options.strategy {
             EvalStrategy::Compiled => {
                 let bytecode = self.compile(&program);
+                if self.options.debug {
+                    dbg!(&bytecode);
+                }
                 let mut vm = VM::new(bytecode);
                 if let Err(err) = vm.run() {
                     eprintln!("{:?}", err);
@@ -98,14 +106,30 @@ fn main() {
         .author(AUTHORS)
         .about("The REPL for Monkers, a Monkeylang engine")
         .arg(
-            Arg::from("<strategy> 'Which eval strategy to use'")
+            Arg::new("strategy")
+                .short('s')
+                .long("strategy")
+                .about("Which eval strategy to use")
+                .takes_value(true)
                 .possible_values(&["compiled", "interpreted"])
-                .default_value("compiled"),
+                .default_value("compiled")
+                .required(false),
+        )
+        .arg(
+            Arg::new("debug")
+                .short('d')
+                .long("debug")
+                .about("Whether to print debug statements during evaluation")
+                .required(false),
         )
         .get_matches();
     let strategy = matches.value_of_t("strategy").unwrap_or_else(|e| e.exit());
+    let debug = matches.is_present("debug");
     println!("Evaluating with strategy: {:?}", &strategy);
-    let repl = Repl::new(&strategy);
+    let repl = Repl::new(ReplOptions {
+        strategy: &strategy,
+        debug,
+    });
 
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
