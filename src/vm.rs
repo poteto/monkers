@@ -1,4 +1,6 @@
-use std::convert::TryFrom;
+use std::{cell::RefCell, convert::TryFrom, rc::Rc};
+
+use fnv::FnvHashMap;
 
 use crate::{
     code::{self, Opcode},
@@ -7,6 +9,7 @@ use crate::{
 };
 
 const STACK_SIZE: usize = 2048;
+const GLOBALS_SIZE: usize = 65536;
 const TRUE: IR = IR::Boolean(true);
 const FALSE: IR = IR::Boolean(false);
 const NULL: IR = IR::Null;
@@ -19,16 +22,36 @@ pub enum VMError {
     TypeError(IR),
 }
 
+#[derive(Clone, Debug)]
+pub struct VMState {
+    pub globals: Rc<RefCell<FnvHashMap<usize, IR>>>,
+}
+
+impl VMState {
+    pub fn new(globals: Option<Rc<RefCell<FnvHashMap<usize, IR>>>>) -> Self {
+        Self {
+            globals: globals.unwrap_or_else(|| {
+                Rc::new(RefCell::new(FnvHashMap::with_capacity_and_hasher(
+                    GLOBALS_SIZE,
+                    Default::default(),
+                )))
+            }),
+        }
+    }
+}
+
 pub struct VM {
     bytecode: Bytecode,
+    state: VMState,
     stack: Vec<IR>,
     stack_ptr: usize,
 }
 
 impl VM {
-    pub fn new(bytecode: Bytecode) -> Self {
+    pub fn new(bytecode: Bytecode, state: VMState) -> Self {
         Self {
             bytecode,
+            state,
             stack: Vec::with_capacity(STACK_SIZE),
             stack_ptr: Default::default(),
         }
@@ -89,7 +112,31 @@ impl VM {
                 Ok(())
             }
             Opcode::OpNull => self.push(NULL),
-            _ => todo!(),
+            Opcode::OpSetGlobal => {
+                let global_index =
+                    code::read_u16(&self.bytecode.instructions[(*instruction_ptr + 1)..]);
+                *instruction_ptr += 2;
+                let global = self.pop();
+                self.state
+                    .globals
+                    .borrow_mut()
+                    .insert(global_index.into(), global);
+                Ok(())
+            }
+            Opcode::OpGetGlobal => {
+                let global_index =
+                    code::read_u16(&self.bytecode.instructions[(*instruction_ptr + 1)..]);
+                *instruction_ptr += 2;
+                let global = self
+                    .state
+                    .globals
+                    .borrow()
+                    .get(&(global_index.into()))
+                    .unwrap()
+                    .clone();
+                self.push(global)?;
+                Ok(())
+            }
         }
     }
 
@@ -214,7 +261,7 @@ impl VM {
 mod tests {
     use crate::{
         ast::Program,
-        compiler::{Bytecode, Compiler},
+        compiler::{Bytecode, Compiler, CompilerState},
         ir::IR,
         lexer::Lexer,
         parser::Parser,
@@ -252,7 +299,9 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let mut compiler = Compiler::new(Rc::clone(self.interner.as_ref().unwrap()));
+            let compiler_state =
+                CompilerState::new(Rc::clone(self.interner.as_ref().unwrap()), None, None);
+            let mut compiler = Compiler::new(compiler_state);
             assert!(compiler.compile(&program).is_ok());
             compiler.to_bytecode()
         }
@@ -280,7 +329,8 @@ mod tests {
     fn run_vm_tests(tests: Vec<VMTestCase>) {
         for test in tests {
             let bytecode = test.compile();
-            let mut vm = VM::new(bytecode);
+            let vm_state = VMState::new(None);
+            let mut vm = VM::new(bytecode, vm_state);
             match vm.run() {
                 Ok(_) => test_expected_object(&test.expected, vm.last_popped_stack_element()),
                 Err(error) => panic!("{:#?}", error),
@@ -359,6 +409,19 @@ mod tests {
             VMTestCase::new(
                 "if ((if (false) { 10 })) { 10 } else { 20 }",
                 IR::Integer(20),
+            ),
+        ];
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn it_evaluates_global_let_statements() {
+        let tests = vec![
+            VMTestCase::new("let one = 1; one", IR::Integer(1)),
+            VMTestCase::new("let one = 1; let two = 2; one + two", IR::Integer(3)),
+            VMTestCase::new(
+                "let one = 1; let two = one + one; one + two",
+                IR::Integer(3),
             ),
         ];
         run_vm_tests(tests);

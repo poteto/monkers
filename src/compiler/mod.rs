@@ -1,6 +1,6 @@
-mod symbol_table;
+pub mod symbol_table;
 
-use std::{fmt, cell::RefCell, convert::TryFrom, rc::Rc};
+use std::{cell::RefCell, convert::TryFrom, fmt, rc::Rc};
 
 use string_interner::StringInterner;
 
@@ -47,24 +47,44 @@ impl EmittedInstruction {
     }
 }
 
+pub struct CompilerState {
+    pub interner: Rc<RefCell<StringInterner>>,
+    pub constants: Rc<RefCell<Vec<IR>>>,
+    pub symbol_table: Rc<RefCell<SymbolTable>>,
+}
+
+impl CompilerState {
+    pub fn new(
+        interner: Rc<RefCell<StringInterner>>,
+        constants: Option<Rc<RefCell<Vec<IR>>>>,
+        symbol_table: Option<Rc<RefCell<SymbolTable>>>,
+    ) -> Self {
+        Self {
+            interner,
+            constants: constants.unwrap_or_default(),
+            symbol_table: symbol_table.unwrap_or_default(),
+        }
+    }
+}
+
 pub struct Compiler {
     instructions: Rc<RefCell<Instructions>>,
     constants: Rc<RefCell<Vec<IR>>>,
     last_instr: Option<EmittedInstruction>,
     prev_instr: Option<EmittedInstruction>,
     interner: Rc<RefCell<StringInterner>>,
-    symbol_table: SymbolTable,
+    symbol_table: Rc<RefCell<SymbolTable>>,
 }
 
 impl Compiler {
-    pub fn new(interner: Rc<RefCell<StringInterner>>) -> Self {
+    pub fn new(options: CompilerState) -> Self {
         Self {
             instructions: Default::default(),
-            constants: Default::default(),
+            constants: options.constants,
             last_instr: Default::default(),
             prev_instr: Default::default(),
-            interner: Rc::clone(&interner),
-            symbol_table: SymbolTable::default(),
+            interner: Rc::clone(&options.interner),
+            symbol_table: Rc::clone(&options.symbol_table),
         }
     }
 
@@ -87,7 +107,7 @@ impl Compiler {
                 .try_for_each(|statement| self.compile_statement(statement)),
             Statement::Let(Identifier(name), expression) => {
                 self.compile_expression(expression)?;
-                let symbol = self.symbol_table.define(*name);
+                let symbol = self.symbol_table.borrow_mut().define(*name);
                 self.emit(Opcode::OpSetGlobal, Some(&[symbol.index]));
                 Ok(())
             }
@@ -181,7 +201,11 @@ impl Compiler {
                 Ok(())
             }
             Expression::Identifier(Identifier(name)) => {
-                match self.symbol_table.resolve(*name) {
+                let identifier;
+                {
+                    identifier = self.symbol_table.borrow_mut().resolve(*name);
+                }
+                match identifier {
                     Some(Symbol { index, .. }) => self.emit(Opcode::OpGetGlobal, Some(&[index])),
                     None => match self.interner.borrow().resolve(*name) {
                         Some(name) => {
@@ -318,7 +342,9 @@ mod tests {
 
         fn compile(&self) -> Bytecode {
             let program = self.parse();
-            let mut compiler = Compiler::new(Rc::clone(self.interner.as_ref().unwrap()));
+            let compiler_options =
+                CompilerState::new(Rc::clone(self.interner.as_ref().unwrap()), None, None);
+            let mut compiler = Compiler::new(compiler_options);
             match compiler.compile(&program) {
                 Ok(_) => compiler.to_bytecode(),
                 Err(error) => panic!("{:#?}", error),
