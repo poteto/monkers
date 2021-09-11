@@ -1,10 +1,10 @@
 use clap::{App, Arg};
 use monkers::{
     ast::Program,
-    compiler::{Bytecode, Compiler},
+    compiler::{Bytecode, Compiler, CompilerState},
     eval::{Env, Interpreter},
     ir::IR,
-    vm::VM,
+    vm::{VMState, VM},
     {lexer::Lexer, parser::Parser},
 };
 use rustyline::{error::ReadlineError, Editor};
@@ -38,23 +38,34 @@ struct ReplOptions<'strategy> {
     debug: bool,
 }
 
+struct ReplState {
+    compiler_state: CompilerState,
+    vm_state: VMState,
+}
+
 struct Repl<'strategy> {
-    interner: Rc<RefCell<StringInterner>>,
     env: Rc<RefCell<Env>>,
     options: ReplOptions<'strategy>,
+    state: ReplState,
 }
 
 impl<'strategy> Repl<'strategy> {
     pub fn new(options: ReplOptions<'strategy>) -> Self {
+        let compiler_state =
+            CompilerState::new(Rc::new(RefCell::new(StringInterner::default())), None, None);
+        let vm_state = VMState::new(None);
         Self {
-            interner: Rc::new(RefCell::new(StringInterner::default())),
+            state: ReplState {
+                compiler_state,
+                vm_state,
+            },
             env: Rc::new(RefCell::new(Env::default())),
             options,
         }
     }
 
     fn parse(&self, input: &str) -> Program {
-        let lexer = Lexer::new(input, Rc::clone(&self.interner));
+        let lexer = Lexer::new(input, Rc::clone(&self.state.compiler_state.interner));
         let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         for error in &program.errors {
@@ -64,7 +75,12 @@ impl<'strategy> Repl<'strategy> {
     }
 
     fn compile(&self, program: &Program) -> Bytecode {
-        let mut compiler = Compiler::new(Rc::clone(&self.interner));
+        let compiler_options = CompilerState {
+            interner: Rc::clone(&self.state.compiler_state.interner),
+            constants: Rc::clone(&self.state.compiler_state.constants),
+            symbol_table: Rc::clone(&self.state.compiler_state.symbol_table),
+        };
+        let mut compiler = Compiler::new(compiler_options);
         if let Err(err) = compiler.compile(program) {
             eprintln!("{:?}", err);
         }
@@ -79,15 +95,18 @@ impl<'strategy> Repl<'strategy> {
                 if self.options.debug {
                     dbg!(&bytecode);
                 }
-                let mut vm = VM::new(bytecode);
+                let vm_state = VMState::new(Some(Rc::clone(&self.state.vm_state.globals)));
+                let mut vm = VM::new(bytecode, vm_state);
                 if let Err(err) = vm.run() {
                     eprintln!("{:?}", err);
                 }
                 Some(vm.last_popped_stack_element())
             }
             EvalStrategy::Interpreted => {
-                let mut interpreter =
-                    Interpreter::new(Rc::clone(&self.env), Rc::clone(&self.interner));
+                let mut interpreter = Interpreter::new(
+                    Rc::clone(&self.env),
+                    Rc::clone(&self.state.compiler_state.interner),
+                );
                 match interpreter.eval(&program) {
                     Ok(ir) => Some((*ir).clone()),
                     Err(error) => {

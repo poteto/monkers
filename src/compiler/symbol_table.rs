@@ -13,6 +13,7 @@ pub struct Symbol {
     pub index: usize,
 }
 
+#[derive(Clone)]
 pub struct SymbolTable {
     num_definitions: usize,
     store: FnvHashMap<SymbolU32, Symbol>,
