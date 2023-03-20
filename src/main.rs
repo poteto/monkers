@@ -128,7 +128,7 @@ fn main() {
             Arg::new("strategy")
                 .short('s')
                 .long("strategy")
-                .about("Which eval strategy to use")
+                .help("Which eval strategy to use")
                 .takes_value(true)
                 .possible_values(&["compiled", "interpreted"])
                 .default_value("compiled")
@@ -138,7 +138,7 @@ fn main() {
             Arg::new("debug")
                 .short('d')
                 .long("debug")
-                .about("Whether to print debug statements during evaluation")
+                .help("Whether to print debug statements during evaluation")
                 .required(false),
         )
         .get_matches();
