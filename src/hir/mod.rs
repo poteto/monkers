@@ -1,63 +1,50 @@
-use crate::{
-    ast::{Expression, Identifier, Program, Statement},
-    token,
-};
-use std::fmt;
+mod instruction;
 
-type InstructionId = u32;
+use crate::ast::{Expression, Identifier, Program, Statement};
+use instruction::{
+    ConstInstruction, Instruction, InstructionId, InstructionValue, ReturnTerminal, Terminal,
+};
+
+type BlockId = u32;
 
 #[derive(Debug)]
 pub enum HIRError {
     NotImplementedYet(String),
 }
 
-pub struct ConstInstr {
-    id: InstructionId,
-    lvalue: Identifier,
-    value: InstructionValue,
-}
-
-pub enum InstructionValue {
-    Integer(token::IntegerSize),
-}
-
-pub enum Instruction {
-    Const(ConstInstr),
-}
-
-impl fmt::Display for Instruction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Instruction::Const(instr) => {
-                write!(f, "[{}] Const {} = {}", instr.id, instr.lvalue, instr.value)
-            }
-        }
-    }
-}
-
-impl fmt::Display for InstructionValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            InstructionValue::Integer(int) => write!(f, "{}", int),
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct HIR {
-    entry: BasicBlock,
+    entry: BlockId,
+    blocks: Vec<BasicBlock>,
 }
 
+#[derive(Debug)]
 pub struct BasicBlock {
+    id: BlockId,
     instructions: Vec<Instruction>,
     preds: Vec<BasicBlock>,
     succs: Vec<BasicBlock>,
 }
 
-//
+impl BasicBlock {
+    pub fn new(id: BlockId) -> Self {
+        Self {
+            id,
+            instructions: Default::default(),
+            preds: Default::default(),
+            succs: Default::default(),
+        }
+    }
+
+    pub fn push_instr(&mut self, instr: Instruction) {
+        self.instructions.push(instr)
+    }
+}
+
 pub struct HIRBuilder {
     hir: Option<HIR>,
     curr_id: InstructionId,
-    pub wip_instrs: Vec<Instruction>,
+    wip_instrs: Vec<Instruction>,
 }
 
 impl HIRBuilder {
@@ -69,25 +56,52 @@ impl HIRBuilder {
         }
     }
 
-    pub fn lower(&mut self, program: &Program) -> Result<(), HIRError> {
+    pub fn lower(&mut self, program: &Program) -> Result<HIR, HIRError> {
         program
             .statements
             .iter()
-            .try_for_each(|statement| self.lower_statement(statement))
+            .try_for_each(|statement| self.lower_statement(statement))?;
+
+        Ok(HIR {
+            entry: 0,
+            blocks: self.form_basic_blocks(),
+        })
+    }
+
+    fn form_basic_blocks(&self) -> Vec<BasicBlock> {
+        let mut block_id = 0;
+        let mut blocks: Vec<BasicBlock> = Vec::new();
+        let mut wip_block = BasicBlock::new(block_id);
+
+        for instr in &self.wip_instrs {
+            wip_block.push_instr(instr.clone());
+            if let Instruction::Terminal(_) = instr {
+                blocks.push(wip_block);
+                block_id += 1;
+                wip_block = BasicBlock::new(block_id)
+            }
+        }
+
+        blocks
     }
 
     fn lower_statement(&mut self, statement: &Statement) -> Result<(), HIRError> {
         match statement {
             Statement::Expression(_) => todo!(),
             Statement::Let(ident, expr) => {
-                let instr = Instruction::Const(ConstInstr {
+                let instr = Instruction::Const(ConstInstruction {
                     lvalue: ident.clone(),
                     id: self.next_instr_id(),
                     value: self.lower_expression(&expr)?,
                 });
                 self.wip_instrs.push(instr);
             }
-            Statement::Return(_) => todo!(),
+            Statement::Return(expr) => {
+                let instr = Instruction::Terminal(Terminal::Return(ReturnTerminal {
+                    value: self.lower_expression(&expr)?,
+                }));
+                self.wip_instrs.push(instr);
+            }
             Statement::Block(_) => todo!(),
         }
         self.curr_id += 1;
@@ -96,7 +110,7 @@ impl HIRBuilder {
 
     fn lower_expression(&self, expression: &Expression) -> Result<InstructionValue, HIRError> {
         match expression {
-            Expression::Identifier(_) => todo!(),
+            Expression::Identifier(Identifier(name)) => Ok(InstructionValue::Identifier(*name)),
             Expression::Integer(int) => Ok(InstructionValue::Integer(*int)),
             Expression::String(_) => todo!(),
             Expression::Boolean(_) => todo!(),
@@ -120,6 +134,8 @@ impl HIRBuilder {
 
 #[cfg(test)]
 mod tests {
+    use expect_test::expect;
+
     use crate::ast::Program;
     use crate::lexer::Lexer;
     use crate::parser::Parser;
@@ -143,18 +159,52 @@ mod tests {
 
     #[test]
     fn it_builds_an_hir() {
-        let tests = vec![("let x = 5;", "[0] Const Identifier(0) = 5")];
+        let tests = vec!["let x = 5; return x;"];
 
-        for (input, expected) in tests {
+        for input in tests {
             let program = parse(input);
             let mut builder = HIRBuilder::new();
-            builder.lower(&program).expect("yes");
+            let hir = builder.lower(&program).expect("yes");
 
-            // todo: it'd be much nicer to assert the entire cfg rather than statement by statement
-            //       also don't expose wip_instrs
-            for instr in &builder.wip_instrs {
-                assert_eq!(expected, instr.to_string());
-            }
+            let expected = expect![[r#"
+                HIR {
+                    entry: 0,
+                    blocks: [
+                        BasicBlock {
+                            id: 0,
+                            instructions: [
+                                Const(
+                                    ConstInstruction {
+                                        id: 0,
+                                        lvalue: Identifier(
+                                            SymbolU32 {
+                                                value: 1,
+                                            },
+                                        ),
+                                        value: Integer(
+                                            5,
+                                        ),
+                                    },
+                                ),
+                                Terminal(
+                                    Return(
+                                        ReturnTerminal {
+                                            value: Identifier(
+                                                SymbolU32 {
+                                                    value: 1,
+                                                },
+                                            ),
+                                        },
+                                    ),
+                                ),
+                            ],
+                            preds: [],
+                            succs: [],
+                        },
+                    ],
+                }
+            "#]];
+            expected.assert_debug_eq(&hir);
         }
     }
 }

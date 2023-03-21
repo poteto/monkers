@@ -21,3 +21,6 @@ bench = false
 [profile.dev]
 opt-level = 0 # Controls the --opt-level the compiler builds with
 debug = true # Controls whether the compiler passes `-g`
+
+[dev-dependencies]
+expect-test = "1.4.1"
