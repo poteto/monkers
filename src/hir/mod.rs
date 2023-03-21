@@ -1,6 +1,7 @@
 mod instruction;
 
 use crate::ast::{Expression, Identifier, Program, Statement};
+use fnv::FnvHashMap;
 use instruction::{
     ConstInstruction, Instruction, InstructionId, InstructionValue, ReturnTerminal, Terminal,
 };
@@ -15,7 +16,7 @@ pub enum HIRError {
 #[derive(Debug)]
 pub struct HIR {
     entry: BlockId,
-    blocks: Vec<BasicBlock>,
+    blocks: FnvHashMap<BlockId, BasicBlock>,
 }
 
 #[derive(Debug)]
@@ -68,15 +69,15 @@ impl HIRBuilder {
         })
     }
 
-    fn form_basic_blocks(&self) -> Vec<BasicBlock> {
+    fn form_basic_blocks(&self) -> FnvHashMap<BlockId, BasicBlock> {
         let mut block_id = 0;
-        let mut blocks: Vec<BasicBlock> = Vec::new();
+        let mut blocks: FnvHashMap<BlockId, BasicBlock> = FnvHashMap::default();
         let mut wip_block = BasicBlock::new(block_id);
 
         for instr in &self.wip_instrs {
             wip_block.push_instr(instr.clone());
             if let Instruction::Terminal(_) = instr {
-                blocks.push(wip_block);
+                blocks.insert(block_id, wip_block);
                 block_id += 1;
                 wip_block = BasicBlock::new(block_id)
             }
@@ -169,8 +170,8 @@ mod tests {
             let expected = expect![[r#"
                 HIR {
                     entry: 0,
-                    blocks: [
-                        BasicBlock {
+                    blocks: {
+                        0: BasicBlock {
                             id: 0,
                             instructions: [
                                 Const(
@@ -201,7 +202,7 @@ mod tests {
                             preds: [],
                             succs: [],
                         },
-                    ],
+                    },
                 }
             "#]];
             expected.assert_debug_eq(&hir);
