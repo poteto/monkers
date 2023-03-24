@@ -6,6 +6,8 @@ use instruction::{
     ConstInstruction, Instruction, InstructionId, InstructionValue, ReturnTerminal, Terminal,
 };
 
+use self::instruction::InfixInstructionValue;
+
 type BlockId = u32;
 
 #[derive(Debug)]
@@ -44,7 +46,8 @@ impl BasicBlock {
 
 pub struct HIRBuilder {
     hir: Option<HIR>,
-    curr_id: InstructionId,
+    curr_instr_id: InstructionId,
+    curr_block_id: BlockId,
     wip_instrs: Vec<Instruction>,
 }
 
@@ -52,7 +55,8 @@ impl HIRBuilder {
     pub fn new() -> Self {
         Self {
             hir: Default::default(),
-            curr_id: 0,
+            curr_instr_id: 0,
+            curr_block_id: 0,
             wip_instrs: Default::default(),
         }
     }
@@ -64,22 +68,21 @@ impl HIRBuilder {
             .try_for_each(|statement| self.lower_statement(statement))?;
 
         Ok(HIR {
-            entry: 0,
+            entry: 0, // todo: figure out entry block
             blocks: self.form_basic_blocks(),
         })
     }
 
-    fn form_basic_blocks(&self) -> FnvHashMap<BlockId, BasicBlock> {
-        let mut block_id = 0;
+    fn form_basic_blocks(&mut self) -> FnvHashMap<BlockId, BasicBlock> {
         let mut blocks: FnvHashMap<BlockId, BasicBlock> = FnvHashMap::default();
-        let mut wip_block = BasicBlock::new(block_id);
+        let mut wip_block = BasicBlock::new(self.curr_block_id);
 
         for instr in &self.wip_instrs {
             wip_block.push_instr(instr.clone());
             if let Instruction::Terminal(_) = instr {
-                blocks.insert(block_id, wip_block);
-                block_id += 1;
-                wip_block = BasicBlock::new(block_id)
+                blocks.insert(self.curr_block_id, wip_block);
+                self.curr_block_id += 1;
+                wip_block = BasicBlock::new(self.curr_block_id)
             }
         }
 
@@ -105,7 +108,7 @@ impl HIRBuilder {
             }
             Statement::Block(_) => todo!(),
         }
-        self.curr_id += 1;
+        self.curr_instr_id += 1;
         Ok(())
     }
 
@@ -113,10 +116,18 @@ impl HIRBuilder {
         match expression {
             Expression::Identifier(Identifier(name)) => Ok(InstructionValue::Identifier(*name)),
             Expression::Integer(int) => Ok(InstructionValue::Integer(*int)),
-            Expression::String(_) => todo!(),
-            Expression::Boolean(_) => todo!(),
+            Expression::String(str) => Ok(InstructionValue::String(*str)),
+            Expression::Boolean(bool) => Ok(InstructionValue::Boolean(*bool)),
             Expression::Prefix(_, _) => todo!(),
-            Expression::Infix(_, _, _) => todo!(),
+            Expression::Infix(op, left, right) => {
+                let left = self.lower_expression(left)?;
+                let right = self.lower_expression(right)?;
+                Ok(InstructionValue::Infix(Box::new(InfixInstructionValue {
+                    operator: op.clone(),
+                    left,
+                    right,
+                })))
+            }
             Expression::Index(_, _) => todo!(),
             Expression::If(_, _, _) => todo!(),
             Expression::Function(_, _) => todo!(),
@@ -127,8 +138,8 @@ impl HIRBuilder {
     }
 
     fn next_instr_id(&mut self) -> u32 {
-        let ret = self.curr_id;
-        self.curr_id += 1;
+        let ret = self.curr_instr_id;
+        self.curr_instr_id += 1;
         ret
     }
 }
@@ -160,52 +171,108 @@ mod tests {
 
     #[test]
     fn it_builds_an_hir() {
-        let tests = vec!["let x = 5; return x;"];
+        // todo: currently nonsensical input but demonstrates that we can handle multiple blocks
+        let program = parse("let x = 5 + 5; let y = x + 5; return x + y; return x;");
+        let mut builder = HIRBuilder::new();
+        let hir = builder.lower(&program).expect("lowers to HIR");
 
-        for input in tests {
-            let program = parse(input);
-            let mut builder = HIRBuilder::new();
-            let hir = builder.lower(&program).expect("yes");
-
-            let expected = expect![[r#"
-                HIR {
-                    entry: 0,
-                    blocks: {
-                        0: BasicBlock {
-                            id: 0,
-                            instructions: [
-                                Const(
-                                    ConstInstruction {
-                                        id: 0,
-                                        lvalue: Identifier(
+        let expected = expect![[r#"
+            HIR {
+                entry: 0,
+                blocks: {
+                    1: BasicBlock {
+                        id: 1,
+                        instructions: [
+                            Terminal(
+                                Return(
+                                    ReturnTerminal {
+                                        value: Identifier(
                                             SymbolU32 {
                                                 value: 1,
                                             },
                                         ),
-                                        value: Integer(
-                                            5,
-                                        ),
                                     },
                                 ),
-                                Terminal(
-                                    Return(
-                                        ReturnTerminal {
-                                            value: Identifier(
+                            ),
+                        ],
+                        preds: [],
+                        succs: [],
+                    },
+                    0: BasicBlock {
+                        id: 0,
+                        instructions: [
+                            Const(
+                                ConstInstruction {
+                                    id: 0,
+                                    lvalue: Identifier(
+                                        SymbolU32 {
+                                            value: 1,
+                                        },
+                                    ),
+                                    value: Infix(
+                                        InfixInstructionValue {
+                                            operator: Plus,
+                                            left: Integer(
+                                                5,
+                                            ),
+                                            right: Integer(
+                                                5,
+                                            ),
+                                        },
+                                    ),
+                                },
+                            ),
+                            Const(
+                                ConstInstruction {
+                                    id: 2,
+                                    lvalue: Identifier(
+                                        SymbolU32 {
+                                            value: 2,
+                                        },
+                                    ),
+                                    value: Infix(
+                                        InfixInstructionValue {
+                                            operator: Plus,
+                                            left: Identifier(
                                                 SymbolU32 {
                                                     value: 1,
                                                 },
                                             ),
+                                            right: Integer(
+                                                5,
+                                            ),
                                         },
                                     ),
+                                },
+                            ),
+                            Terminal(
+                                Return(
+                                    ReturnTerminal {
+                                        value: Infix(
+                                            InfixInstructionValue {
+                                                operator: Plus,
+                                                left: Identifier(
+                                                    SymbolU32 {
+                                                        value: 1,
+                                                    },
+                                                ),
+                                                right: Identifier(
+                                                    SymbolU32 {
+                                                        value: 2,
+                                                    },
+                                                ),
+                                            },
+                                        ),
+                                    },
                                 ),
-                            ],
-                            preds: [],
-                            succs: [],
-                        },
+                            ),
+                        ],
+                        preds: [],
+                        succs: [],
                     },
-                }
-            "#]];
-            expected.assert_debug_eq(&hir);
-        }
+                },
+            }
+        "#]];
+        expected.assert_debug_eq(&hir);
     }
 }

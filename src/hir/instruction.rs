@@ -2,7 +2,10 @@ use std::fmt;
 
 use string_interner::symbol::SymbolU32;
 
-use crate::{ast::Identifier, token};
+use crate::{
+    ast::Identifier,
+    token::{self, Token},
+};
 
 pub type InstructionId = u32;
 
@@ -10,6 +13,17 @@ pub type InstructionId = u32;
 pub enum InstructionValue {
     Identifier(SymbolU32),
     Integer(token::IntegerSize),
+    String(SymbolU32),
+    Boolean(bool),
+
+    Infix(Box<InfixInstructionValue>),
+}
+
+#[derive(Clone, Debug)]
+pub struct InfixInstructionValue {
+    pub(crate) operator: Token,
+    pub(crate) left: InstructionValue,
+    pub(crate) right: InstructionValue,
 }
 
 #[derive(Clone, Debug)]
@@ -51,6 +65,11 @@ impl fmt::Display for InstructionValue {
         match self {
             InstructionValue::Integer(int) => int.fmt(f),
             InstructionValue::Identifier(ident) => write!(f, "Identifier({:?})", ident),
+            InstructionValue::String(str) => write!(f, "String({:?})", str),
+            InstructionValue::Boolean(bool) => bool.fmt(f),
+            InstructionValue::Infix(infix) => {
+                write!(f, "{} {} {}", infix.left, infix.operator, infix.right)
+            }
         }
     }
 }
