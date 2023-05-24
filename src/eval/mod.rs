@@ -8,8 +8,8 @@ use string_interner::StringInterner;
 pub use crate::eval::env::Env;
 use crate::{
     ast::{
-        Expression, FunctionExpression, Identifier, IfExpression, IndexExpression, InfixExpression,
-        LetStatement, PrefixExpression, Program, Statement,
+        CallExpression, Expression, FunctionExpression, Identifier, IfExpression, IndexExpression,
+        InfixExpression, LetStatement, PrefixExpression, Program, Statement,
     },
     eval::error::EvalError,
     eval::validate::ValidateLength,
@@ -144,18 +144,18 @@ impl Interpreter {
                 Rc::clone(body),
                 Rc::clone(&self.env),
             ))),
-            Expression::Call(function, arguments) => {
+            Expression::Call(CallExpression { func, args }) => {
                 // quote(<Expression>)
-                if let Expression::Identifier(Identifier(identifier_key)) = **function {
+                if let Expression::Identifier(Identifier(identifier_key)) = **func {
                     let mut interner = self.interner.borrow_mut();
                     let quote_key = interner.get_or_intern(String::from("quote"));
                     if quote_key == identifier_key {
-                        self.expect_arguments_length(arguments, ValidateLength::Exact(1))?;
-                        return Ok(Rc::new(IR::Quote(arguments[0].clone())));
+                        self.expect_arguments_length(args, ValidateLength::Exact(1))?;
+                        return Ok(Rc::new(IR::Quote(args[0].clone())));
                     }
                 }
-                let function = self.eval_expression(function)?;
-                let evaluated_args = self.eval_expressions(arguments)?;
+                let function = self.eval_expression(func)?;
+                let evaluated_args = self.eval_expressions(args)?;
                 self.eval_call_expression(function, &evaluated_args)
             }
             Expression::String(string_key) => Ok(Rc::new(IR::String(InternedString {

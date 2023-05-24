@@ -5,8 +5,8 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        Expression, FunctionExpression, Identifier, IfExpression, IndexExpression, InfixExpression,
-        LetStatement, PrefixExpression, Program, Statement,
+        CallExpression, Expression, FunctionExpression, Identifier, IfExpression, IndexExpression,
+        InfixExpression, LetStatement, PrefixExpression, Program, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -318,10 +318,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_call_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
-        Ok(Expression::Call(
+        Ok(Expression::Call(CallExpression::new(
             Box::new(left),
             self.parse_expression_list(Token::Rparen)?,
-        ))
+        )))
     }
 
     fn parse_hash_literal(&mut self) -> Result<Expression, ParserError> {

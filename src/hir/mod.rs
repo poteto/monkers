@@ -131,7 +131,7 @@ impl HIRBuilder {
             Expression::Index(_) => todo!(),
             Expression::If(_) => todo!(),
             Expression::Function(_) => todo!(),
-            Expression::Call(_, _) => todo!(),
+            Expression::Call(_) => todo!(),
             Expression::Array(_) => todo!(),
             Expression::Hash(_) => todo!(),
         }

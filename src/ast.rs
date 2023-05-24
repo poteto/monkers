@@ -89,10 +89,7 @@ pub enum Expression {
 
     If(IfExpression),
     Function(FunctionExpression),
-    Call(
-        Box<Expression>, // Function
-        Vec<Expression>, // Arguments
-    ),
+    Call(CallExpression),
 
     Array(Vec<Expression>),
     Hash(Vec<(Expression, Expression)>),
@@ -168,6 +165,18 @@ impl FunctionExpression {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct CallExpression {
+    pub func: Box<Expression>,
+    pub args: Vec<Expression>,
+}
+
+impl CallExpression {
+    pub fn new(func: Box<Expression>, args: Vec<Expression>) -> Self {
+        Self { func, args }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -220,11 +229,11 @@ impl fmt::Display for Expression {
                     .join(", "),
                 body = body
             ),
-            Expression::Call(function, arguments) => write!(
+            Expression::Call(CallExpression { func, args }) => write!(
                 f,
                 "{func}({args})",
-                func = function,
-                args = arguments
+                func = func,
+                args = args
                     .iter()
                     .map(|arg| arg.to_string())
                     .collect::<Vec<String>>()
