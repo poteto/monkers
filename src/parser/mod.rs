@@ -5,7 +5,8 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+        Expression, Identifier, IndexExpression, InfixExpression, LetStatement, PrefixExpression,
+        Program, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -288,10 +289,10 @@ impl<'a> Parser<'a> {
 
     fn parse_index_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
         self.next_token();
-        let expression = Expression::Index(
+        let expression = Expression::Index(IndexExpression::new(
             Box::new(left),
             Box::new(self.parse_expression(Precedence::Lowest)?),
-        );
+        ));
         self.expect_peek(Token::Rbracket)?;
         Ok(expression)
     }

@@ -8,7 +8,8 @@ use string_interner::StringInterner;
 pub use crate::eval::env::Env;
 use crate::{
     ast::{
-        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+        Expression, Identifier, IndexExpression, InfixExpression, LetStatement, PrefixExpression,
+        Program, Statement,
     },
     eval::error::EvalError,
     eval::validate::ValidateLength,
@@ -128,7 +129,7 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_infix_expression(op, left, right)
             }
-            Expression::Index(left, index) => {
+            Expression::Index(IndexExpression { left, index }) => {
                 let left = self.eval_expression(left)?;
                 let index = self.eval_expression(index)?;
                 self.eval_index_expression(left, index)

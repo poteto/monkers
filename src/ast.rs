@@ -85,10 +85,7 @@ pub enum Expression {
 
     Prefix(PrefixExpression),
     Infix(InfixExpression),
-    Index(
-        Box<Expression>, // Left
-        Box<Expression>, // Index
-    ),
+    Index(IndexExpression),
 
     If(
         Box<Expression>,        // Condition
@@ -133,6 +130,18 @@ impl InfixExpression {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct IndexExpression {
+    pub left: Box<Expression>,
+    pub index: Box<Expression>,
+}
+
+impl IndexExpression {
+    pub fn new(left: Box<Expression>, index: Box<Expression>) -> Self {
+        Self { left, index }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -152,7 +161,7 @@ impl fmt::Display for Expression {
                 op = op,
                 right = right
             ),
-            Expression::Index(left, index) => {
+            Expression::Index(IndexExpression { left, index }) => {
                 write!(f, "({left}[{index}])", left = left, index = index)
             }
             Expression::If(condition, consequence, alternative) => {
