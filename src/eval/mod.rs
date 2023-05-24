@@ -7,7 +7,7 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{Expression, Identifier, LetStatement, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, PrefixExpression, Program, Statement},
     eval::error::EvalError,
     eval::validate::ValidateLength,
     ir::{BuiltIn, InternedString, IR},
@@ -117,9 +117,9 @@ impl Interpreter {
             }
             Expression::Integer(value) => Ok(Rc::new(IR::Integer(*value))),
             Expression::Boolean(value) => Ok(self.get_interned_bool(value)),
-            Expression::Prefix(operator, right) => {
+            Expression::Prefix(PrefixExpression { op, right }) => {
                 let right = self.eval_expression(right)?;
-                self.eval_prefix_expression(operator, right)
+                self.eval_prefix_expression(op, right)
             }
             Expression::Infix(operator, left, right) => {
                 let left = self.eval_expression(left)?;
@@ -162,8 +162,8 @@ impl Interpreter {
         }
     }
 
-    fn eval_prefix_expression(&self, operator: &Token, right: Rc<IR>) -> EvalResult {
-        match operator {
+    fn eval_prefix_expression(&self, op: &Token, right: Rc<IR>) -> EvalResult {
+        match op {
             Token::Bang => match *right {
                 IR::Boolean(true) => Ok(Rc::new(FALSE)),
                 IR::Boolean(false) => Ok(Rc::new(TRUE)),

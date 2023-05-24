@@ -5,7 +5,7 @@ use std::{cell::RefCell, convert::TryFrom, fmt, rc::Rc};
 use string_interner::StringInterner;
 
 use crate::{
-    ast::{Expression, Identifier, LetStatement, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, PrefixExpression, Program, Statement},
     code::{self, Byte, Instructions, Opcode},
     compiler::symbol_table::Symbol,
     ir::IR,
@@ -155,14 +155,12 @@ impl Compiler {
                 };
                 Ok(())
             }
-            Expression::Prefix(operator, right) => {
+            Expression::Prefix(PrefixExpression { op, right }) => {
                 self.compile_expression(right)?;
-                match operator {
+                match op {
                     Token::Bang => self.emit(Opcode::OpBang, None),
                     Token::Minus => self.emit(Opcode::OpMinus, None),
-                    operator => {
-                        return Err(CompilerError::NotImplementedYet(format!("{:#?}", operator)))
-                    }
+                    op => return Err(CompilerError::NotImplementedYet(format!("{:#?}", op))),
                 };
                 Ok(())
             }

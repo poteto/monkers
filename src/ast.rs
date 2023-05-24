@@ -83,10 +83,7 @@ pub enum Expression {
     String(SymbolU32),
     Boolean(bool),
 
-    Prefix(
-        Token,           // Operator
-        Box<Expression>, // Right
-    ),
+    Prefix(PrefixExpression),
     Infix(
         Token,           // Operator
         Box<Expression>, // Left
@@ -115,6 +112,18 @@ pub enum Expression {
     Hash(Vec<(Expression, Expression)>),
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrefixExpression {
+    pub op: Token,
+    pub right: Box<Expression>,
+}
+
+impl PrefixExpression {
+    pub fn new(op: Token, right: Box<Expression>) -> Self {
+        Self { op, right }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -124,8 +133,8 @@ impl fmt::Display for Expression {
                 write!(f, "String({:?})", string_key.to_usize())
             }
             Expression::Boolean(value) => value.fmt(f),
-            Expression::Prefix(token, right) => {
-                write!(f, "({operator}{right})", operator = token, right = right)
+            Expression::Prefix(PrefixExpression { op, right }) => {
+                write!(f, "({operator}{right})", operator = op, right = right)
             }
             Expression::Infix(operator, left, right) => write!(
                 f,

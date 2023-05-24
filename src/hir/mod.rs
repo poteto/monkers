@@ -118,7 +118,7 @@ impl HIRBuilder {
             Expression::Integer(int) => Ok(InstructionValue::Integer(*int)),
             Expression::String(str) => Ok(InstructionValue::String(*str)),
             Expression::Boolean(bool) => Ok(InstructionValue::Boolean(*bool)),
-            Expression::Prefix(_, _) => todo!(),
+            Expression::Prefix(_) => todo!(),
             Expression::Infix(op, left, right) => {
                 let left = self.lower_expression(left)?;
                 let right = self.lower_expression(right)?;
