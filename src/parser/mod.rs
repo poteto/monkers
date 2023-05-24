@@ -4,7 +4,7 @@ use string_interner::symbol::SymbolU32;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
-    ast::{Expression, Identifier, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, Program, Statement},
     lexer::Lexer,
     token::Token,
 };
@@ -98,14 +98,14 @@ impl<'a> Parser<'a> {
             self.next_token(); // let -> identifier
             self.expect_peek(Token::Assign)?;
             self.next_token();
-            let statement = Statement::Let(
+            let statement = LetStatement::new(
                 Identifier(ident),
                 self.parse_expression(Precedence::Lowest)?,
             );
             if self.peek_token == Token::Semicolon {
                 self.next_token();
             }
-            Ok(statement)
+            Ok(Statement::Let(statement))
         } else {
             Err(self.parse_syntax_error(format!(
                 "Expected identifier to follow `{}`, got `{}` instead",

@@ -34,21 +34,33 @@ impl fmt::Display for Program {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     Expression(Expression),
-    Let(Identifier, Expression),
+    Let(LetStatement),
     Return(Expression),
     Block(Rc<Vec<Statement>>),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LetStatement {
+    pub ident: Identifier,
+    pub expr: Expression,
+}
+
+impl LetStatement {
+    pub fn new(ident: Identifier, expr: Expression) -> Self {
+        Self { ident, expr }
+    }
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Statement::Expression(expression) => expression.fmt(f),
-            Statement::Let(name, value) => write!(
+            Statement::Let(stmt) => write!(
                 f,
-                "{token} {name} = {value};",
+                "{token} {ident} = {expr};",
                 token = Token::Let,
-                name = name,
-                value = value,
+                ident = stmt.ident,
+                expr = stmt.expr,
             ),
             Statement::Return(value) => {
                 write!(f, "{token} {value};", token = Token::Return, value = value)

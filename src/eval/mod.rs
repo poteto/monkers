@@ -7,7 +7,7 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{Expression, Identifier, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, Program, Statement},
     eval::error::EvalError,
     eval::validate::ValidateLength,
     ir::{BuiltIn, InternedString, IR},
@@ -55,8 +55,11 @@ impl Interpreter {
 
     fn eval_statement(&mut self, statement: &Statement) -> EvalResult {
         match statement {
-            Statement::Let(Identifier(identifier_key), value) => {
-                let value = self.eval_expression(value)?;
+            Statement::Let(LetStatement {
+                ident: Identifier(identifier_key),
+                expr,
+            }) => {
+                let value = self.eval_expression(expr)?;
                 self.env.borrow_mut().set(identifier_key, Rc::clone(&value));
                 Ok(value)
             }

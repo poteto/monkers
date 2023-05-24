@@ -1,6 +1,6 @@
 mod instruction;
 
-use crate::ast::{Expression, Identifier, Program, Statement};
+use crate::ast::{Expression, Identifier, LetStatement, Program, Statement};
 use fnv::FnvHashMap;
 use instruction::{
     ConstInstruction, Instruction, InstructionId, InstructionValue, ReturnTerminal, Terminal,
@@ -92,7 +92,7 @@ impl HIRBuilder {
     fn lower_statement(&mut self, statement: &Statement) -> Result<(), HIRError> {
         match statement {
             Statement::Expression(_) => todo!(),
-            Statement::Let(ident, expr) => {
+            Statement::Let(LetStatement { ident, expr }) => {
                 let instr = Instruction::Const(ConstInstruction {
                     lvalue: ident.clone(),
                     id: self.next_instr_id(),

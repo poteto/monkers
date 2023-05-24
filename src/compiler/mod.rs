@@ -5,7 +5,7 @@ use std::{cell::RefCell, convert::TryFrom, fmt, rc::Rc};
 use string_interner::StringInterner;
 
 use crate::{
-    ast::{Expression, Identifier, Program, Statement},
+    ast::{Expression, Identifier, LetStatement, Program, Statement},
     code::{self, Byte, Instructions, Opcode},
     compiler::symbol_table::Symbol,
     ir::IR,
@@ -105,8 +105,11 @@ impl Compiler {
             Statement::Block(statements) => statements
                 .iter()
                 .try_for_each(|statement| self.compile_statement(statement)),
-            Statement::Let(Identifier(name), expression) => {
-                self.compile_expression(expression)?;
+            Statement::Let(LetStatement {
+                ident: Identifier(name),
+                expr,
+            }) => {
+                self.compile_expression(expr)?;
                 let symbol = self.symbol_table.borrow_mut().define(*name);
                 self.emit(Opcode::OpSetGlobal, Some(&[symbol.index]));
                 Ok(())
