@@ -5,8 +5,8 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        Expression, Identifier, IndexExpression, InfixExpression, LetStatement, PrefixExpression,
-        Program, Statement,
+        Expression, Identifier, IfExpression, IndexExpression, InfixExpression, LetStatement,
+        PrefixExpression, Program, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -177,23 +177,23 @@ impl<'a> Parser<'a> {
         if let Ok(condition) = self.parse_expression(Precedence::Lowest) {
             self.expect_peek(Token::Rparen)?;
             self.expect_peek(Token::Lbrace)?;
-            let mut consequence = None;
-            let mut alternative = None;
+            let mut consequent = None;
+            let mut alternate = None;
             if let Ok(statement) = self.parse_block_statement() {
-                consequence = Some(Box::new(statement));
+                consequent = Some(Box::new(statement));
             }
             if self.peek_token == Token::Else {
                 self.next_token();
                 self.expect_peek(Token::Lbrace)?;
                 if let Ok(statement) = self.parse_block_statement() {
-                    alternative = Some(Box::new(statement));
+                    alternate = Some(Box::new(statement));
                 }
             }
-            Ok(Expression::If(
+            Ok(Expression::If(IfExpression::new(
                 Box::new(condition),
-                consequence,
-                alternative,
-            ))
+                consequent,
+                alternate,
+            )))
         } else {
             Err(self.parse_syntax_error("Expected a condition expression".to_string()))
         }

@@ -87,11 +87,7 @@ pub enum Expression {
     Infix(InfixExpression),
     Index(IndexExpression),
 
-    If(
-        Box<Expression>,        // Condition
-        Option<Box<Statement>>, // Consequence
-        Option<Box<Statement>>, // Alternative
-    ),
+    If(IfExpression),
     Function(
         Rc<Vec<Identifier>>, // Parameters
         Rc<Statement>,       // Body
@@ -142,6 +138,27 @@ impl IndexExpression {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct IfExpression {
+    pub condition: Box<Expression>,
+    pub consequent: Option<Box<Statement>>,
+    pub alternate: Option<Box<Statement>>,
+}
+
+impl IfExpression {
+    pub fn new(
+        condition: Box<Expression>,
+        consequent: Option<Box<Statement>>,
+        alternate: Option<Box<Statement>>,
+    ) -> Self {
+        Self {
+            condition,
+            consequent,
+            alternate,
+        }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -164,17 +181,21 @@ impl fmt::Display for Expression {
             Expression::Index(IndexExpression { left, index }) => {
                 write!(f, "({left}[{index}])", left = left, index = index)
             }
-            Expression::If(condition, consequence, alternative) => {
-                if let (condition, Some(consequence)) = (condition, consequence) {
+            Expression::If(IfExpression {
+                condition,
+                consequent,
+                alternate,
+            }) => {
+                if let (condition, Some(consequent)) = (condition, consequent) {
                     write!(
                         f,
                         "{token} {cond} {cons}",
                         token = Token::If,
                         cond = condition,
-                        cons = consequence
+                        cons = consequent
                     )?;
-                    if let Some(alternative) = alternative {
-                        write!(f, " {token} {alt}", token = Token::Else, alt = alternative)?;
+                    if let Some(alternate) = alternate {
+                        write!(f, " {token} {alt}", token = Token::Else, alt = alternate)?;
                     }
                 }
                 Ok(())

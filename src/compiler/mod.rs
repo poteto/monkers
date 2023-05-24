@@ -6,7 +6,8 @@ use string_interner::StringInterner;
 
 use crate::{
     ast::{
-        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+        Expression, Identifier, IfExpression, InfixExpression, LetStatement, PrefixExpression,
+        Program, Statement,
     },
     code::{self, Byte, Instructions, Opcode},
     compiler::symbol_table::Symbol,
@@ -180,11 +181,15 @@ impl Compiler {
                 };
                 Ok(())
             }
-            Expression::If(condition, consequence, alternative) => {
+            Expression::If(IfExpression {
+                condition,
+                consequent,
+                alternate,
+            }) => {
                 self.compile_expression(condition)?;
                 let jump_not_truthy_pos = self.emit(Opcode::OpJumpNotTruthy, Some(&[9999]));
-                if let Some(consequence) = consequence {
-                    self.compile_statement(&*consequence)?;
+                if let Some(consequent) = consequent {
+                    self.compile_statement(&*consequent)?;
                 }
                 if self.last_instr_is_pop() {
                     self.remove_last_pop();
@@ -192,8 +197,8 @@ impl Compiler {
                 let jump_pos = self.emit(Opcode::OpJump, Some(&[9999]));
                 self.change_operand(jump_not_truthy_pos, self.instructions_len());
 
-                if let Some(alternative) = alternative {
-                    self.compile_statement(&*alternative)?;
+                if let Some(alternate) = alternate {
+                    self.compile_statement(&*alternate)?;
                     if self.last_instr_is_pop() {
                         self.remove_last_pop();
                     }
