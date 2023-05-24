@@ -5,7 +5,9 @@ use std::{cell::RefCell, convert::TryFrom, fmt, rc::Rc};
 use string_interner::StringInterner;
 
 use crate::{
-    ast::{Expression, Identifier, LetStatement, PrefixExpression, Program, Statement},
+    ast::{
+        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+    },
     code::{self, Byte, Instructions, Opcode},
     compiler::symbol_table::Symbol,
     ir::IR,
@@ -123,8 +125,8 @@ impl Compiler {
 
     fn compile_expression(&mut self, expression: &Expression) -> Result<(), CompilerError> {
         match expression {
-            Expression::Infix(operator, left, right) => {
-                match operator {
+            Expression::Infix(InfixExpression { op, left, right }) => {
+                match op {
                     // SPECIAL CASE
                     // We can always reorder a < b expressions into b > a, so we don't need an
                     // OpLesserThan instruction. Note that right is compiled before left.

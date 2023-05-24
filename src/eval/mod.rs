@@ -7,7 +7,9 @@ use string_interner::StringInterner;
 
 pub use crate::eval::env::Env;
 use crate::{
-    ast::{Expression, Identifier, LetStatement, PrefixExpression, Program, Statement},
+    ast::{
+        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+    },
     eval::error::EvalError,
     eval::validate::ValidateLength,
     ir::{BuiltIn, InternedString, IR},
@@ -121,10 +123,10 @@ impl Interpreter {
                 let right = self.eval_expression(right)?;
                 self.eval_prefix_expression(op, right)
             }
-            Expression::Infix(operator, left, right) => {
+            Expression::Infix(InfixExpression { op, left, right }) => {
                 let left = self.eval_expression(left)?;
                 let right = self.eval_expression(right)?;
-                self.eval_infix_expression(operator, left, right)
+                self.eval_infix_expression(op, left, right)
             }
             Expression::Index(left, index) => {
                 let left = self.eval_expression(left)?;
@@ -178,18 +180,18 @@ impl Interpreter {
         }
     }
 
-    fn eval_infix_expression(&self, operator: &Token, left: Rc<IR>, right: Rc<IR>) -> EvalResult {
+    fn eval_infix_expression(&self, op: &Token, left: Rc<IR>, right: Rc<IR>) -> EvalResult {
         match (&*left, &*right) {
             (IR::ReturnValue(left), IR::ReturnValue(right)) => {
-                self.eval_infix_expression(operator, Rc::clone(left), Rc::clone(right))
+                self.eval_infix_expression(op, Rc::clone(left), Rc::clone(right))
             }
             (IR::ReturnValue(return_value), _) => {
-                self.eval_infix_expression(operator, Rc::clone(return_value), right)
+                self.eval_infix_expression(op, Rc::clone(return_value), right)
             }
             (_, IR::ReturnValue(return_value)) => {
-                self.eval_infix_expression(operator, left, Rc::clone(return_value))
+                self.eval_infix_expression(op, left, Rc::clone(return_value))
             }
-            (IR::Integer(left), IR::Integer(right)) => match operator {
+            (IR::Integer(left), IR::Integer(right)) => match op {
                 Token::Plus => Ok(Rc::new(IR::Integer(left + right))),
                 Token::Minus => Ok(Rc::new(IR::Integer(left - right))),
                 Token::Asterisk => Ok(Rc::new(IR::Integer(left * right))),
@@ -207,7 +209,7 @@ impl Interpreter {
                     right = right
                 ))),
             },
-            (IR::String(left), IR::String(right)) => match operator {
+            (IR::String(left), IR::String(right)) => match op {
                 Token::Plus => {
                     let concat = format!("{}{}", left, right);
                     let mut interner = self.interner.borrow_mut();
@@ -224,24 +226,20 @@ impl Interpreter {
                     right = right
                 ))),
             },
-            (left, right) if *operator == Token::Equal => {
-                Ok(self.get_interned_bool(&(left == right)))
-            }
-            (left, right) if *operator == Token::NotEqual => {
-                Ok(self.get_interned_bool(&(left != right)))
-            }
+            (left, right) if *op == Token::Equal => Ok(self.get_interned_bool(&(left == right))),
+            (left, right) if *op == Token::NotEqual => Ok(self.get_interned_bool(&(left != right))),
             (left, right) if mem::discriminant(left) != mem::discriminant(right) => {
                 Err(EvalError::TypeError(format!(
                     "{left} {operator} {right}",
                     left = left,
-                    operator = operator,
+                    operator = op,
                     right = right
                 )))
             }
             (left, right) => Err(EvalError::UnknownOperator(format!(
                 "{left} {operator} {right}",
                 left = left,
-                operator = operator,
+                operator = op,
                 right = right
             ))),
         }

@@ -84,11 +84,7 @@ pub enum Expression {
     Boolean(bool),
 
     Prefix(PrefixExpression),
-    Infix(
-        Token,           // Operator
-        Box<Expression>, // Left
-        Box<Expression>, // Right
-    ),
+    Infix(InfixExpression),
     Index(
         Box<Expression>, // Left
         Box<Expression>, // Index
@@ -124,6 +120,19 @@ impl PrefixExpression {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct InfixExpression {
+    pub op: Token,
+    pub left: Box<Expression>,
+    pub right: Box<Expression>,
+}
+
+impl InfixExpression {
+    pub fn new(op: Token, left: Box<Expression>, right: Box<Expression>) -> Self {
+        Self { op, left, right }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -136,11 +145,11 @@ impl fmt::Display for Expression {
             Expression::Prefix(PrefixExpression { op, right }) => {
                 write!(f, "({operator}{right})", operator = op, right = right)
             }
-            Expression::Infix(operator, left, right) => write!(
+            Expression::Infix(InfixExpression { op, left, right }) => write!(
                 f,
-                "({left} {operator} {right})",
+                "({left} {op} {right})",
                 left = left,
-                operator = operator,
+                op = op,
                 right = right
             ),
             Expression::Index(left, index) => {

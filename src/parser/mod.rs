@@ -4,7 +4,9 @@ use string_interner::symbol::SymbolU32;
 
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
-    ast::{Expression, Identifier, LetStatement, PrefixExpression, Program, Statement},
+    ast::{
+        Expression, Identifier, InfixExpression, LetStatement, PrefixExpression, Program, Statement,
+    },
     lexer::Lexer,
     token::Token,
 };
@@ -274,14 +276,14 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {
-        let operator = self.curr_token.clone();
-        let precedence = precedence_for(&operator);
+        let op = self.curr_token.clone();
+        let precedence = precedence_for(&op);
         self.next_token();
-        Ok(Expression::Infix(
-            operator,
+        Ok(Expression::Infix(InfixExpression::new(
+            op,
             Box::new(left),
             Box::new(self.parse_expression(precedence)?),
-        ))
+        )))
     }
 
     fn parse_index_expression(&mut self, left: Expression) -> Result<Expression, ParserError> {

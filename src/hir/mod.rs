@@ -1,6 +1,6 @@
 mod instruction;
 
-use crate::ast::{Expression, Identifier, LetStatement, Program, Statement};
+use crate::ast::{Expression, Identifier, InfixExpression, LetStatement, Program, Statement};
 use fnv::FnvHashMap;
 use instruction::{
     ConstInstruction, Instruction, InstructionId, InstructionValue, ReturnTerminal, Terminal,
@@ -119,7 +119,7 @@ impl HIRBuilder {
             Expression::String(str) => Ok(InstructionValue::String(*str)),
             Expression::Boolean(bool) => Ok(InstructionValue::Boolean(*bool)),
             Expression::Prefix(_) => todo!(),
-            Expression::Infix(op, left, right) => {
+            Expression::Infix(InfixExpression { op, left, right }) => {
                 let left = self.lower_expression(left)?;
                 let right = self.lower_expression(right)?;
                 Ok(InstructionValue::Infix(Box::new(InfixInstructionValue {
