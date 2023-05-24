@@ -88,10 +88,7 @@ pub enum Expression {
     Index(IndexExpression),
 
     If(IfExpression),
-    Function(
-        Rc<Vec<Identifier>>, // Parameters
-        Rc<Statement>,       // Body
-    ),
+    Function(FunctionExpression),
     Call(
         Box<Expression>, // Function
         Vec<Expression>, // Arguments
@@ -159,6 +156,18 @@ impl IfExpression {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionExpression {
+    pub params: Rc<Vec<Identifier>>,
+    pub body: Rc<Statement>,
+}
+
+impl FunctionExpression {
+    pub fn new(params: Rc<Vec<Identifier>>, body: Rc<Statement>) -> Self {
+        Self { params, body }
+    }
+}
+
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -200,11 +209,11 @@ impl fmt::Display for Expression {
                 }
                 Ok(())
             }
-            Expression::Function(parameters, body) => write!(
+            Expression::Function(FunctionExpression { params, body }) => write!(
                 f,
                 "{token}({params}) {{{body}}}",
                 token = Token::Function,
-                params = parameters
+                params = params
                     .iter()
                     .map(|ident| ident.to_string())
                     .collect::<Vec<String>>()

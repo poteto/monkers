@@ -5,8 +5,8 @@ use string_interner::symbol::SymbolU32;
 pub use crate::parser::error::{ParserError, ParserErrorMessage};
 use crate::{
     ast::{
-        Expression, Identifier, IfExpression, IndexExpression, InfixExpression, LetStatement,
-        PrefixExpression, Program, Statement,
+        Expression, FunctionExpression, Identifier, IfExpression, IndexExpression, InfixExpression,
+        LetStatement, PrefixExpression, Program, Statement,
     },
     lexer::Lexer,
     token::Token,
@@ -204,7 +204,10 @@ impl<'a> Parser<'a> {
         let parameters = self.parse_function_parameters()?;
         self.expect_peek(Token::Lbrace)?;
         let body = Rc::new(self.parse_block_statement()?);
-        Ok(Expression::Function(Rc::new(parameters), body))
+        Ok(Expression::Function(FunctionExpression::new(
+            Rc::new(parameters),
+            body,
+        )))
     }
 
     fn parse_function_parameters(&mut self) -> Result<Vec<Identifier>, ParserError> {
